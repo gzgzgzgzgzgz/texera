@@ -92,6 +92,8 @@ export class JointGraphWrapper {
   private restorePaperOffsetSubject: Subject<Point> = new Subject<Point>();
   // event stream of panning to make mini-map and main workflow paper compatible in offset
   private panPaperOffsetSubject: Subject<Point> = new Subject<Point>();
+  // event stream of panning to make mini-map and main workflow paper compatible in offset
+  private panPaperOffsetSubject2: Subject<Point> = new Subject<Point>();
   // event stream of highlighing a link
   private jointLinkHighlightStream = new Subject<linkIDType>();
   // event stream of unhighlighing a link
@@ -403,6 +405,15 @@ export class JointGraphWrapper {
   public setPanningOffset(panOffset: Point): void {
     this.panOffset = panOffset;
     this.panPaperOffsetSubject.next(panOffset);
+  }
+
+  public getPanPaperOffsetStream2(): Observable<Point> {
+    return this.panPaperOffsetSubject2.asObservable();
+  }
+
+  public setPanningOffset2(panOffset: Point): void {
+    // this.panOffset = panOffset;
+    this.panPaperOffsetSubject2.next(panOffset);
   }
 
   /**

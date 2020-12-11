@@ -28,4 +28,6 @@
   border: 1px solid #797A79;
   position: absolute;
   z-index: 1000;
+  pointer-events: all;
+  cursor: move;
 }

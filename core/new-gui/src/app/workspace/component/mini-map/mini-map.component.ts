@@ -37,8 +37,11 @@ export class MiniMapComponent implements AfterViewInit {
   private readonly MINI_MAP_GRID_SIZE = 45;
   private miniMapPaper: joint.dia.Paper | undefined;
 
+  private ifMouseDown: boolean = false;
   private panOffset: Point = {x: 0, y: 0};
   private navigatorElementOffset: Point = {x: 0, y: 0};
+  private navigatorBoundOffset: Point = {x: 0, y: 0};
+  private navigatorBoundCoordinate: Point = {x: 0, y: 0};
 
   constructor(private workflowActionService: WorkflowActionService) { }
 
@@ -96,12 +99,71 @@ export class MiniMapComponent implements AfterViewInit {
       this.workflowActionService.getJointGraphWrapper().getRestorePaperOffsetStream()
     ).subscribe(newOffset => {
       this.panOffset = newOffset;
-      this.getMiniMapPaper().translate(
-        -this.navigatorElementOffset.x + newOffset.x * this.MINI_MAP_ZOOM_SCALE,
-        -this.navigatorElementOffset.y + newOffset.y * this.MINI_MAP_ZOOM_SCALE
-      );
+      // this.getMiniMapPaper().translate(
+      //   -this.navigatorElementOffset.x + newOffset.x * this.MINI_MAP_ZOOM_SCALE,
+      //   -this.navigatorElementOffset.y + newOffset.y * this.MINI_MAP_ZOOM_SCALE
+      // );
+      jQuery('#' + this.MINI_MAP_NAVIGATOR_ID).css('top', -newOffset.y * this.MINI_MAP_ZOOM_SCALE);
+      jQuery('#' + this.MINI_MAP_NAVIGATOR_ID).css('left', -newOffset.x * this.MINI_MAP_ZOOM_SCALE);
       }
     );
+  }
+
+  // tslint:disable-next-line:member-ordering
+  public mouseDown(e: { clientX: any; clientY: any; target: { offsetLeft: any; offsetTop: any; }; }) {
+    // console.log('mouseDown', e.clientX, e.clientY);
+    // console.log('mouseDown', e.target.offsetLeft, e.target.offsetTop);
+    this.ifMouseDown = true;
+    this.navigatorBoundCoordinate = {x: e.clientX, y: e.clientY};
+    this.navigatorBoundOffset = {x: e.target.offsetLeft, y: e.target.offsetTop};
+  }
+
+  // tslint:disable-next-line:member-ordering
+  public mouseUp() {
+    this.ifMouseDown = false;
+  }
+
+  // tslint:disable-next-line:member-ordering
+  public mouseLeave() {
+    this.ifMouseDown = false;
+  }
+
+  // tslint:disable-next-line:member-ordering
+  public mouseMove(e: { clientX: number; clientY: number; }) {
+    if (this.ifMouseDown) {
+      const minX = 0;
+      const minY = 0;
+      // max is temporarily hard-coded, need to change later
+      const maxX = 100;
+      const maxY = 190;
+      // console.log(this.getNavigatorElementOffset());
+      // console.log(jQuery('#' + this.MINI_MAP_NAVIGATOR_ID).height(), jQuery('#' + this.MINI_MAP_NAVIGATOR_ID).width());
+      let newX = this.navigatorBoundOffset.x + e.clientX - this.navigatorBoundCoordinate.x;
+      let newY = this.navigatorBoundOffset.y + e.clientY - this.navigatorBoundCoordinate.y;
+      let translateX = (e.clientX - this.navigatorBoundCoordinate.x) / this.MINI_MAP_ZOOM_SCALE;
+      let translateY = (e.clientY - this.navigatorBoundCoordinate.y) / this.MINI_MAP_ZOOM_SCALE;
+      // console.log('newX, newY', newX, newY);
+      if (minY > newY) {
+        newY = minY;
+        translateY = -this.navigatorBoundOffset.y / this.MINI_MAP_ZOOM_SCALE;
+      }
+      if (minX > newX) {
+        newX = minX;
+        translateX = -this.navigatorBoundOffset.x / this.MINI_MAP_ZOOM_SCALE;
+      }
+      if (maxY < newY) {
+        newY = maxY;
+        translateY = (maxY - this.navigatorBoundCoordinate.y) / this.MINI_MAP_ZOOM_SCALE;
+      }
+      if (maxX < newX) {
+        newX = maxX;
+        translateX = (maxX - this.navigatorBoundCoordinate.x) / this.MINI_MAP_ZOOM_SCALE;
+      }
+      jQuery('#' + this.MINI_MAP_NAVIGATOR_ID).css('top', newY);
+      jQuery('#' + this.MINI_MAP_NAVIGATOR_ID).css('left', newX);
+      const temp: Point = {x: translateX, y: translateY};
+      this.workflowActionService.getJointGraphWrapper().setPanningOffset2(temp);
+    }
   }
 
   /**

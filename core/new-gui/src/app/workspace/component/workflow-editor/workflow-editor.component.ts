@@ -127,6 +127,7 @@ export class WorkflowEditorComponent implements AfterViewInit {
     this.handleCellHighlight();
     this.handleViewDeleteLink();
     this.handlePaperPan();
+    this.handleMinimapTranslate();
 
     if (environment.executionStatusEnabled) {
       this.handleOperatorStatisticsUpdate();
@@ -457,6 +458,20 @@ export class WorkflowEditorComponent implements AfterViewInit {
     // This observable captures the drop event to stop the panning
     Observable.fromEvent<JointPaperEvent>(this.getJointPaper(), 'blank:pointerup')
       .subscribe(() => this.ifMouseDown = false);
+  }
+
+  private handleMinimapTranslate(): void {
+    const x = this.getJointPaper().translate().tx;
+    const y = this.getJointPaper().translate().ty;
+    Observable.merge(
+      this.workflowActionService.getJointGraphWrapper().getPanPaperOffsetStream2(),
+    ).subscribe(newOffset => {
+      this.getJointPaper().translate(
+        -this.getWrapperElementOffset().x - x - newOffset.x * this.workflowActionService.getJointGraphWrapper().getZoomRatio(),
+        -this.getWrapperElementOffset().y - y - newOffset.y * this.workflowActionService.getJointGraphWrapper().getZoomRatio()
+      );
+      }
+    );
   }
 
   /**
