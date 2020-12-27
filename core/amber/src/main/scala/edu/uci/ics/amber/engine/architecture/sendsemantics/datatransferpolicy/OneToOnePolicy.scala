@@ -5,42 +5,42 @@ import edu.uci.ics.amber.engine.common.tuple.ITuple
 import akka.actor.{ActorContext, ActorRef}
 import akka.event.LoggingAdapter
 import akka.util.Timeout
+import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.{DataPayload, EndOfUpstream}
+import edu.uci.ics.amber.engine.common.ambermessage.neo.DataEvent
+import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContext
 
 class OneToOnePolicy(batchSize: Int) extends DataTransferPolicy(batchSize) {
-  var receiver: ActorRef = _
+  var receiver: Identifier = _
   var batch: Array[ITuple] = _
   var currentSize = 0
 
   override def addTupleToBatch(
       tuple: ITuple
-  )(implicit sender: ActorRef): Option[(ActorRef, Array[ITuple])] = {
+  ): Option[(Identifier, DataEvent)] = {
     batch(currentSize) = tuple
     currentSize += 1
     if (currentSize == batchSize) {
       currentSize = 0
       val retBatch = batch
       batch = new Array[ITuple](batchSize)
-      return Some((receiver, retBatch))
+      return Some((receiver, DataPayload(retBatch)))
     }
     None
   }
 
-  override def noMore()(implicit sender: ActorRef): Array[(ActorRef, Array[ITuple])] = {
+  override def noMore(): Array[(Identifier, DataEvent)] = {
+    val ret = new ArrayBuffer[(Identifier, DataEvent)]
     if (currentSize > 0) {
-      return Array[(ActorRef, Array[ITuple])]((receiver, batch.slice(0, currentSize)))
+      ret.append((receiver, DataPayload(batch.slice(0, currentSize))))
     }
-    return Array[(ActorRef, Array[ITuple])]()
+    ret.append((receiver, EndOfUpstream()))
+    ret.toArray
   }
 
-  override def initialize(tag: LinkTag, _receivers: Array[ActorRef])(implicit
-      ac: ActorContext,
-      sender: ActorRef,
-      timeout: Timeout,
-      ec: ExecutionContext,
-      log: LoggingAdapter
-  ): Unit = {
+  override def initialize(tag: LinkTag, _receivers: Array[Identifier]): Unit = {
     super.initialize(tag, _receivers)
     assert(_receivers != null && _receivers.length == 1)
     receiver = _receivers(0)

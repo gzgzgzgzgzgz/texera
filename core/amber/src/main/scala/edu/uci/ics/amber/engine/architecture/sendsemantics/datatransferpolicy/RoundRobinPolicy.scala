@@ -5,27 +5,32 @@ import edu.uci.ics.amber.engine.common.tuple.ITuple
 import akka.actor.{ActorContext, ActorRef}
 import akka.event.LoggingAdapter
 import akka.util.Timeout
+import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.{DataPayload, EndOfUpstream}
+import edu.uci.ics.amber.engine.common.ambermessage.neo.DataEvent
+import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContext
 
 class RoundRobinPolicy(batchSize: Int) extends DataTransferPolicy(batchSize) {
-  var receivers: Array[ActorRef] = _
+  var receivers: Array[Identifier] = _
   var roundRobinIndex = 0
   var batch: Array[ITuple] = _
   var currentSize = 0
 
-  override def noMore()(implicit sender: ActorRef): Array[(ActorRef, Array[ITuple])] = {
+  override def noMore(): Array[(Identifier, DataEvent)] = {
+    val ret = new ArrayBuffer[(Identifier, DataEvent)]
     if (currentSize > 0) {
-      return Array[(ActorRef, Array[ITuple])](
-        (receivers(roundRobinIndex), batch.slice(0, currentSize))
+      ret.append((receivers(roundRobinIndex), DataPayload(batch.slice(0, currentSize)))
       )
     }
-    return Array[(ActorRef, Array[ITuple])]()
+    ret.append((receivers(roundRobinIndex), EndOfUpstream()))
+    ret.toArray
   }
 
   override def addTupleToBatch(
       tuple: ITuple
-  )(implicit sender: ActorRef): Option[(ActorRef, Array[ITuple])] = {
+  ): Option[(Identifier, DataEvent)] = {
     batch(currentSize) = tuple
     currentSize += 1
     if (currentSize == batchSize) {
@@ -33,18 +38,12 @@ class RoundRobinPolicy(batchSize: Int) extends DataTransferPolicy(batchSize) {
       val retBatch = batch
       roundRobinIndex = (roundRobinIndex + 1) % receivers.length
       batch = new Array[ITuple](batchSize)
-      return Some((receivers(roundRobinIndex), retBatch))
+      return Some((receivers(roundRobinIndex), DataPayload(retBatch)))
     }
     None
   }
 
-  override def initialize(tag: LinkTag, _receivers: Array[ActorRef])(implicit
-      ac: ActorContext,
-      sender: ActorRef,
-      timeout: Timeout,
-      ec: ExecutionContext,
-      log: LoggingAdapter
-  ): Unit = {
+  override def initialize(tag: LinkTag, _receivers: Array[Identifier]): Unit = {
     super.initialize(tag, _receivers)
     assert(_receivers != null)
     this.receivers = _receivers

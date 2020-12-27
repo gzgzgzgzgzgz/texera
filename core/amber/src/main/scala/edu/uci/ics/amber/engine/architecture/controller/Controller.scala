@@ -1,83 +1,27 @@
 package edu.uci.ics.amber.engine.architecture.controller
 
 import edu.uci.ics.amber.clustering.ClusterListener.GetAvailableNodeAddresses
-import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.{
-  ExceptionGlobalBreakpoint,
-  GlobalBreakpoint
-}
+import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.{ExceptionGlobalBreakpoint, GlobalBreakpoint}
 import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.GlobalBreakpoint
-import edu.uci.ics.amber.engine.architecture.controller.ControllerEvent.{
-  BreakpointTriggered,
-  ErrorOccurred,
-  ModifyLogicCompleted,
-  SkipTupleResponse,
-  WorkflowCompleted,
-  WorkflowPaused,
-  WorkflowStatusUpdate
-}
+import edu.uci.ics.amber.engine.architecture.controller.ControllerEvent.{BreakpointTriggered, ErrorOccurred, ModifyLogicCompleted, SkipTupleResponse, WorkflowCompleted, WorkflowPaused, WorkflowStatusUpdate}
 import edu.uci.ics.amber.engine.architecture.deploysemantics.deploystrategy.OneOnEach
 import edu.uci.ics.amber.engine.architecture.deploysemantics.deploymentfilter.FollowPrevious
-import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.{
-  ActorLayer,
-  GeneratorWorkerLayer,
-  ProcessorWorkerLayer
-}
-import edu.uci.ics.amber.engine.faulttolerance.materializer.{
-  HashBasedMaterializer,
-  OutputMaterializer
-}
-import edu.uci.ics.amber.engine.architecture.linksemantics.{
-  FullRoundRobin,
-  HashBasedShuffle,
-  LocalPartialToOne,
-  OperatorLink
-}
-import edu.uci.ics.amber.engine.architecture.principal.{
-  Principal,
-  PrincipalState,
-  PrincipalStatistics
-}
+import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.{ActorLayer, GeneratorWorkerLayer, ProcessorWorkerLayer}
+import edu.uci.ics.amber.engine.faulttolerance.materializer.{HashBasedMaterializer, OutputMaterializer}
+import edu.uci.ics.amber.engine.architecture.linksemantics.{FullRoundRobin, HashBasedShuffle, LocalPartialToOne, OperatorLink}
+import edu.uci.ics.amber.engine.architecture.principal.{Principal, PrincipalState, PrincipalStatistics}
 import edu.uci.ics.amber.engine.common.amberexception.AmberException
 import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage._
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage._
 import edu.uci.ics.amber.engine.common.ambermessage.PrincipalMessage
-import edu.uci.ics.amber.engine.common.ambermessage.PrincipalMessage.{
-  AckedPrincipalInitialization,
-  AssignBreakpoint,
-  GetOutputLayer,
-  ReportCurrentProcessingTuple,
-  ReportOutputResult,
-  ReportPrincipalPartialCompleted
-}
+import edu.uci.ics.amber.engine.common.ambermessage.PrincipalMessage.{AckedPrincipalInitialization, AssignBreakpoint, GetOutputLayer, ReportCurrentProcessingTuple, ReportOutputResult, ReportPrincipalPartialCompleted}
 import edu.uci.ics.amber.engine.common.ambermessage.StateMessage.EnforceStateCheck
-import edu.uci.ics.amber.engine.common.ambertag.{
-  AmberTag,
-  LayerTag,
-  LinkTag,
-  OperatorIdentifier,
-  WorkflowTag
-}
+import edu.uci.ics.amber.engine.common.ambertag.{AmberTag, LayerTag, LinkTag, OperatorIdentifier, WorkflowTag}
 import edu.uci.ics.amber.engine.common.tuple.ITuple
-import edu.uci.ics.amber.engine.common.{
-  AdvancedMessageSending,
-  AmberUtils,
-  Constants,
-  ISourceOperatorExecutor
-}
+import edu.uci.ics.amber.engine.common.{AdvancedMessageSending, AmberUtils, Constants, ISourceOperatorExecutor}
 import edu.uci.ics.amber.engine.faulttolerance.scanner.HDFSFolderScanSourceOperatorExecutor
 import edu.uci.ics.amber.engine.operators.OpExecConfig
-import akka.actor.{
-  Actor,
-  ActorLogging,
-  ActorRef,
-  ActorSelection,
-  Address,
-  Cancellable,
-  Deploy,
-  PoisonPill,
-  Props,
-  Stash
-}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSelection, Address, Cancellable, Deploy, PoisonPill, Props, Stash}
 import akka.dispatch.Futures
 import akka.event.LoggingAdapter
 import akka.pattern.ask
@@ -89,6 +33,7 @@ import play.api.libs.json.{JsArray, JsValue, Json}
 import com.google.common.collect.BiMap
 import com.google.common.collect.HashBiMap
 import edu.uci.ics.amber.backenderror.Error
+import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutput
 
 import collection.JavaConverters._
 import scala.collection.mutable
@@ -233,7 +178,7 @@ class Controller(
     val statisticsUpdateIntervalMs: Option[Long]
 ) extends Actor
     with ActorLogging
-    with Stash {
+    with Stash with NetworkOutput{
   implicit val ec: ExecutionContext = context.dispatcher
   implicit val timeout: Timeout = 5.seconds
   implicit val logAdapter: LoggingAdapter = log
@@ -365,356 +310,468 @@ class Controller(
   }
 
   override def receive: Receive = {
-    case QueryStatistics =>
-    // do nothing, not initialized yet
-    case PrincipalMessage.ReportStatistics(statistics) =>
-      principalStatisticsMap.update(sender, statistics)
-      triggerStatusUpdateEvent();
-    case AckedControllerInitialization =>
-      val nodes = availableNodes
-      log.info("start initialization --------cluster have " + nodes.length + " nodes---------")
-      for (k <- workflow.startOperators) {
-        val v = workflow.operators(k)
-        val p = context.actorOf(
-          Principal.props(v).withDeploy(Deploy(scope = RemoteScope(getPrincipalNode(nodes)))),
-          v.tag.operator
-        )
-        principalBiMap.put(k, p)
-        principalStates(p) = PrincipalState.Uninitialized
-        principalInCurrentStage.add(p)
-      }
-      workflow.startOperators.foreach { x =>
-        val principal = principalBiMap.get(x)
-        AdvancedMessageSending.nonBlockingAskWithRetry(
-          principal,
-          AckedPrincipalInitialization(Array()),
-          10,
-          0,
-          y =>
-            y match {
-              case AckWithInformation(z) =>
-                workflow.operators(x) = z.asInstanceOf[OpExecConfig]
-                //assign exception breakpoint before all breakpoints
-                if (!recoveryMode) {
-                  AdvancedMessageSending.blockingAskWithRetry(
-                    principal,
-                    AssignBreakpoint(
-                      new ExceptionGlobalBreakpoint(x.operator + "-ExceptionBreakpoint")
-                    ),
-                    10
-                  )
-                }
-              case other => throw new AmberException("principal didn't return updated metadata")
-            }
-        )
-      }
-      frontier ++= workflow.startOperators.flatMap(workflow.outLinks(_))
-    case ContinuedInitialization =>
-      log.info("continue initialization")
-      prevFrontier = frontier
-      val nodes = availableNodes
-      for (k <- frontier) {
-        val v = workflow.operators(k)
-        if (!principalBiMap.containsKey(k)) {
-          val newPrincipal = context.actorOf(
+    findActorRefAutomatically orElse[Any, Unit] {
+      case QueryStatistics =>
+      // do nothing, not initialized yet
+      case PrincipalMessage.ReportStatistics(statistics) =>
+        principalStatisticsMap.update(sender, statistics)
+        triggerStatusUpdateEvent();
+      case AckedControllerInitialization =>
+        val nodes = availableNodes
+        log.info("start initialization --------cluster have " + nodes.length + " nodes---------")
+        for (k <- workflow.startOperators) {
+          val v = workflow.operators(k)
+          val p = context.actorOf(
             Principal.props(v).withDeploy(Deploy(scope = RemoteScope(getPrincipalNode(nodes)))),
             v.tag.operator
           )
-          principalBiMap.put(k, newPrincipal)
+          principalBiMap.put(k, p)
+          principalStates(p) = PrincipalState.Uninitialized
+          principalInCurrentStage.add(p)
         }
-        val p = principalBiMap.get(k)
-        principalStates(p) = PrincipalState.Uninitialized
-        principalInCurrentStage.add(p)
-      }
-      frontier.foreach { x =>
-        val principal = principalBiMap.get(x)
-        AdvancedMessageSending.nonBlockingAskWithRetry(
-          principal,
-          AckedPrincipalInitialization(Array()),
-          10,
-          0,
-          y =>
-            y match {
-              case AckWithInformation(z) =>
-                workflow.operators(x) = z.asInstanceOf[OpExecConfig]
-                //assign exception breakpoint before all breakpoints
-                if (!recoveryMode) {
-                  AdvancedMessageSending.blockingAskWithRetry(
-                    principal,
-                    AssignBreakpoint(
-                      new ExceptionGlobalBreakpoint(x.operator + "-ExceptionBreakpoint")
-                    ),
-                    10
-                  )
-                }
-              case other => throw new AmberException("principal didn't return updated metadata")
-            }
-        )
-      }
-      val next = frontier.flatMap(workflow.outLinks(_))
-      frontier.clear()
-      frontier ++= next
-    case PrincipalMessage.ReportState(state) =>
-      principalStates(sender) = state
-      if (
-        principalStates.size == workflow.operators.size && principalStates.values.forall(
-          _ != PrincipalState.Uninitialized
-        )
-      ) {
-        frontier.clear()
-        if (stashedFrontier.nonEmpty) {
-          log.info("partially initialized!")
-          frontier ++= stashedFrontier
-          stashedFrontier.clear()
-        } else {
-          log.info("fully initialized!")
-        }
-        context.parent ! ReportState(ControllerState.Ready)
-        context.become(ready)
-        if (this.statisticsUpdateIntervalMs.nonEmpty) {
-          statusUpdateAskHandle = context.system.scheduler.schedule(
-            0.milliseconds,
-            FiniteDuration.apply(statisticsUpdateIntervalMs.get, MILLISECONDS),
-            self,
-            QueryStatistics
-          )
-        }
-        unstashAll()
-      } else {
-        val next = frontier.filter(i =>
-          workflow
-            .inLinks(i)
-            .forall(x =>
-              principalBiMap.containsKey(x) && principalStates.contains(
-                principalBiMap.get(x)
-              ) && principalStates(principalBiMap.get(x)) == PrincipalState.Ready
-            )
-        )
-        frontier --= next
-        val prevInfo = next
-          .flatMap(
-            workflow
-              .inLinks(_)
-              .map(x =>
-                (
-                  workflow.operators(x),
-                  Await
-                    .result(principalBiMap.get(x) ? GetOutputLayer, 5.seconds)
-                    .asInstanceOf[ActorLayer]
-                )
-              )
-          )
-          .toArray
-        val nodes = availableNodes
-        val operatorsToWait = new ArrayBuffer[OperatorIdentifier]
-        for (k <- next) {
-          if (withCheckpoint) {
-            for (n <- workflow.outLinks(k)) {
-              if (workflow.operators(n).requiredShuffle) {
-                insertCheckpoint(workflow.operators(k), workflow.operators(n))
-                operatorsToWait.append(k)
-                linksToIgnore.add((k, n))
-              }
-            }
-          }
-          val v = workflow.operators(k)
-          v.runtimeCheck(workflow) match {
-            case Some(dependencies) =>
-              dependencies.foreach { x =>
-                if (startDependencies.contains(x._1)) {
-                  startDependencies(x._1) ++= x._2
-                } else {
-                  startDependencies.put(x._1, x._2)
-                }
-              }
-            case None =>
-          }
-          if (!principalBiMap.containsKey(k)) {
-            val p = context.actorOf(
-              Principal.props(v).withDeploy(Deploy(scope = RemoteScope(getPrincipalNode(nodes)))),
-              v.tag.operator
-            )
-            principalBiMap.put(k, p)
-          }
-          val principal = principalBiMap.get(k)
-          principalStates(principal) = PrincipalState.Uninitialized
-          principalInCurrentStage.add(principal)
-          AdvancedMessageSending.blockingAskWithRetry(
+        workflow.startOperators.foreach { x =>
+          val principal = principalBiMap.get(x)
+          AdvancedMessageSending.nonBlockingAskWithRetry(
             principal,
-            AckedPrincipalInitialization(prevInfo),
+            AckedPrincipalInitialization(Array()),
             10,
+            0,
             y =>
               y match {
                 case AckWithInformation(z) =>
-                  workflow.operators(k) = z.asInstanceOf[OpExecConfig]
+                  workflow.operators(x) = z.asInstanceOf[OpExecConfig]
+                  val layers = workflow.operators(x).topology.layers
+                  layers.foreach {
+                    layer =>
+                      layer.identifiers.indices.foreach(i =>
+                        registerActorRef(layer.identifiers(i), layer.layer(i)))
+                  }
                   //assign exception breakpoint before all breakpoints
                   if (!recoveryMode) {
                     AdvancedMessageSending.blockingAskWithRetry(
                       principal,
                       AssignBreakpoint(
-                        new ExceptionGlobalBreakpoint(k.operator + "-ExceptionBreakpoint")
+                        new ExceptionGlobalBreakpoint(x.operator + "-ExceptionBreakpoint")
                       ),
                       10
                     )
                   }
-                case other =>
-                  eventListener.workflowExecutionErrorListener.apply(
-                    ErrorOccurred(
-                      Error(
-                        "principal didn't return updated metadata",
-                        "Engine:Controller:PrincipalInitialization",
-                        Map(
-                          "return_value" -> y.toString(),
-                          "trace" -> Thread.currentThread().getStackTrace().mkString("\n")
+                case other => throw new AmberException("principal didn't return updated metadata")
+              }
+          )
+        }
+        frontier ++= workflow.startOperators.flatMap(workflow.outLinks(_))
+      case ContinuedInitialization =>
+        log.info("continue initialization")
+        prevFrontier = frontier
+        val nodes = availableNodes
+        for (k <- frontier) {
+          val v = workflow.operators(k)
+          if (!principalBiMap.containsKey(k)) {
+            val newPrincipal = context.actorOf(
+              Principal.props(v).withDeploy(Deploy(scope = RemoteScope(getPrincipalNode(nodes)))),
+              v.tag.operator
+            )
+            principalBiMap.put(k, newPrincipal)
+          }
+          val p = principalBiMap.get(k)
+          principalStates(p) = PrincipalState.Uninitialized
+          principalInCurrentStage.add(p)
+        }
+        frontier.foreach { x =>
+          val principal = principalBiMap.get(x)
+          AdvancedMessageSending.nonBlockingAskWithRetry(
+            principal,
+            AckedPrincipalInitialization(Array()),
+            10,
+            0,
+            y =>
+              y match {
+                case AckWithInformation(z) =>
+                  workflow.operators(x) = z.asInstanceOf[OpExecConfig]
+                  val layers = workflow.operators(x).topology.layers
+                  layers.foreach {
+                    layer =>
+                      layer.identifiers.indices.foreach(i =>
+                        registerActorRef(layer.identifiers(i), layer.layer(i)))
+                  }
+                  //assign exception breakpoint before all breakpoints
+                  if (!recoveryMode) {
+                    AdvancedMessageSending.blockingAskWithRetry(
+                      principal,
+                      AssignBreakpoint(
+                        new ExceptionGlobalBreakpoint(x.operator + "-ExceptionBreakpoint")
+                      ),
+                      10
+                    )
+                  }
+                case other => throw new AmberException("principal didn't return updated metadata")
+              }
+          )
+        }
+        val next = frontier.flatMap(workflow.outLinks(_))
+        frontier.clear()
+        frontier ++= next
+      case PrincipalMessage.ReportState(state) =>
+        principalStates(sender) = state
+        if (
+          principalStates.size == workflow.operators.size && principalStates.values.forall(
+            _ != PrincipalState.Uninitialized
+          )
+        ) {
+          frontier.clear()
+          if (stashedFrontier.nonEmpty) {
+            log.info("partially initialized!")
+            frontier ++= stashedFrontier
+            stashedFrontier.clear()
+          } else {
+            log.info("fully initialized!")
+          }
+          context.parent ! ReportState(ControllerState.Ready)
+          context.become(ready)
+          if (this.statisticsUpdateIntervalMs.nonEmpty) {
+            statusUpdateAskHandle = context.system.scheduler.schedule(
+              0.milliseconds,
+              FiniteDuration.apply(statisticsUpdateIntervalMs.get, MILLISECONDS),
+              self,
+              QueryStatistics
+            )
+          }
+          unstashAll()
+        } else {
+          val next = frontier.filter(i =>
+            workflow
+              .inLinks(i)
+              .forall(x =>
+                principalBiMap.containsKey(x) && principalStates.contains(
+                  principalBiMap.get(x)
+                ) && principalStates(principalBiMap.get(x)) == PrincipalState.Ready
+              )
+          )
+          frontier --= next
+          val prevInfo = next
+            .flatMap(
+              workflow
+                .inLinks(_)
+                .map(x =>
+                  (
+                    workflow.operators(x),
+                    Await
+                      .result(principalBiMap.get(x) ? GetOutputLayer, 5.seconds)
+                      .asInstanceOf[ActorLayer]
+                  )
+                )
+            )
+            .toArray
+          val nodes = availableNodes
+          val operatorsToWait = new ArrayBuffer[OperatorIdentifier]
+          for (k <- next) {
+            if (withCheckpoint) {
+              for (n <- workflow.outLinks(k)) {
+                if (workflow.operators(n).requiredShuffle) {
+                  insertCheckpoint(workflow.operators(k), workflow.operators(n))
+                  operatorsToWait.append(k)
+                  linksToIgnore.add((k, n))
+                }
+              }
+            }
+            val v = workflow.operators(k)
+            v.runtimeCheck(workflow) match {
+              case Some(dependencies) =>
+                dependencies.foreach { x =>
+                  if (startDependencies.contains(x._1)) {
+                    startDependencies(x._1) ++= x._2
+                  } else {
+                    startDependencies.put(x._1, x._2)
+                  }
+                }
+              case None =>
+            }
+            if (!principalBiMap.containsKey(k)) {
+              val p = context.actorOf(
+                Principal.props(v).withDeploy(Deploy(scope = RemoteScope(getPrincipalNode(nodes)))),
+                v.tag.operator
+              )
+              principalBiMap.put(k, p)
+            }
+            val principal = principalBiMap.get(k)
+            principalStates(principal) = PrincipalState.Uninitialized
+            principalInCurrentStage.add(principal)
+            AdvancedMessageSending.blockingAskWithRetry(
+              principal,
+              AckedPrincipalInitialization(prevInfo),
+              10,
+              y =>
+                y match {
+                  case AckWithInformation(z) =>
+                    workflow.operators(k) = z.asInstanceOf[OpExecConfig]
+                    val layers = workflow.operators(k).topology.layers
+                    layers.foreach {
+                      layer =>
+                        layer.identifiers.indices.foreach(i =>
+                          registerActorRef(layer.identifiers(i), layer.layer(i)))
+                    }
+                    //assign exception breakpoint before all breakpoints
+                    if (!recoveryMode) {
+                      AdvancedMessageSending.blockingAskWithRetry(
+                        principal,
+                        AssignBreakpoint(
+                          new ExceptionGlobalBreakpoint(k.operator + "-ExceptionBreakpoint")
+                        ),
+                        10
+                      )
+                    }
+                  case other =>
+                    eventListener.workflowExecutionErrorListener.apply(
+                      ErrorOccurred(
+                        Error(
+                          "principal didn't return updated metadata",
+                          "Engine:Controller:PrincipalInitialization",
+                          Map(
+                            "return_value" -> y.toString(),
+                            "trace" -> Thread.currentThread().getStackTrace().mkString("\n")
+                          )
                         )
                       )
                     )
-                  )
-                  throw new AmberException("principal didn't return updated metadata")
+                    throw new AmberException("principal didn't return updated metadata")
+                }
+            )
+            for (from <- workflow.inLinks(k)) {
+              if (!linksToIgnore.contains(from, k)) {
+                val edge = new OperatorLink(
+                  (workflow.operators(from), principalBiMap.get(from)),
+                  (workflow.operators(k), principalBiMap.get(k))
+                )
+                edge.link()
+                edges(edge.tag) = edge
               }
-          )
-          for (from <- workflow.inLinks(k)) {
-            if (!linksToIgnore.contains(from, k)) {
-              val edge = new OperatorLink(
-                (workflow.operators(from), principalBiMap.get(from)),
-                (workflow.operators(k), principalBiMap.get(k))
-              )
-              edge.link()
-              edges(edge.tag) = edge
             }
           }
+          next --= operatorsToWait
+          frontier ++= next.filter(workflow.outLinks.contains).flatMap(workflow.outLinks(_))
+          stashedFrontier ++= operatorsToWait
+            .filter(workflow.outLinks.contains)
+            .flatMap(workflow.outLinks(_))
+          frontier --= stashedFrontier
         }
-        next --= operatorsToWait
-        frontier ++= next.filter(workflow.outLinks.contains).flatMap(workflow.outLinks(_))
-        stashedFrontier ++= operatorsToWait
-          .filter(workflow.outLinks.contains)
-          .flatMap(workflow.outLinks(_))
-        frontier --= stashedFrontier
-      }
-    case msg => stash()
+      case msg => stash()
+    }
   }
 
   private[this] def ready: Receive = {
-    case QueryStatistics =>
-      this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
-    case PrincipalMessage.ReportStatistics(statistics) =>
-      principalStatisticsMap.update(sender, statistics)
-      triggerStatusUpdateEvent();
-    case Start =>
-      log.info("received start signal")
-      if (!timer.isRunning) {
-        timer.start()
-      }
-      workflow.startOperators.foreach { x =>
-        if (!startDependencies.contains(x))
-          AdvancedMessageSending.nonBlockingAskWithRetry(principalBiMap.get(x), Start, 10, 0)
-      }
-    case PrincipalMessage.ReportState(state) =>
-      principalStates(sender) = state
-      state match {
-        case PrincipalState.Running =>
-          log.info("workflow started!")
-          context.parent ! ReportState(ControllerState.Running)
-          context.become(running)
-          unstashAll()
-        case PrincipalState.Paused =>
-          if (principalStates.values.forall(_ == PrincipalState.Completed)) {
-            timer.stop()
-            log.info("workflow completed! Time Elapsed: " + timer.toString())
-            timer.reset()
-            safeRemoveAskHandle()
-            context.parent ! ReportState(ControllerState.Completed)
-            context.become(completed)
+    findActorRefAutomatically orElse[Any, Unit] {
+      case QueryStatistics =>
+        this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
+      case PrincipalMessage.ReportStatistics(statistics) =>
+        principalStatisticsMap.update(sender, statistics)
+        triggerStatusUpdateEvent();
+      case Start =>
+        log.info("received start signal")
+        if (!timer.isRunning) {
+          timer.start()
+        }
+        workflow.startOperators.foreach { x =>
+          if (!startDependencies.contains(x))
+            AdvancedMessageSending.nonBlockingAskWithRetry(principalBiMap.get(x), Start, 10, 0)
+        }
+      case PrincipalMessage.ReportState(state) =>
+        principalStates(sender) = state
+        state match {
+          case PrincipalState.Running =>
+            log.info("workflow started!")
+            context.parent ! ReportState(ControllerState.Running)
+            context.become(running)
             unstashAll()
-          } else if (allUnCompletedPrincipalStates.forall(_ == PrincipalState.Paused)) {
-            pauseTimer.stop()
-            log.info("workflow paused! Time Elapsed: " + pauseTimer.toString())
-            pauseTimer.reset()
-            safeRemoveAskHandle()
-            context.parent ! ReportState(ControllerState.Paused)
-            if (this.eventListener.workflowPausedListener != null) {
-              this.eventListener.workflowPausedListener.apply(WorkflowPaused())
+          case PrincipalState.Paused =>
+            if (principalStates.values.forall(_ == PrincipalState.Completed)) {
+              timer.stop()
+              log.info("workflow completed! Time Elapsed: " + timer.toString())
+              timer.reset()
+              safeRemoveAskHandle()
+              context.parent ! ReportState(ControllerState.Completed)
+              context.become(completed)
+              unstashAll()
+            } else if (allUnCompletedPrincipalStates.forall(_ == PrincipalState.Paused)) {
+              pauseTimer.stop()
+              log.info("workflow paused! Time Elapsed: " + pauseTimer.toString())
+              pauseTimer.reset()
+              safeRemoveAskHandle()
+              context.parent ! ReportState(ControllerState.Paused)
+              if (this.eventListener.workflowPausedListener != null) {
+                this.eventListener.workflowPausedListener.apply(WorkflowPaused())
+              }
+              context.become(paused)
+              unstashAll()
             }
-            context.become(paused)
-            unstashAll()
-          }
-      }
-    case PassBreakpointTo(id: String, breakpoint: GlobalBreakpoint) =>
-      val opTag = OperatorIdentifier(tag, id)
-      if (principalBiMap.containsKey(opTag)) {
-        AdvancedMessageSending.blockingAskWithRetry(
-          principalBiMap.get(opTag),
-          AssignBreakpoint(breakpoint),
-          3
-        )
-      } else {
-        throw new AmberException("target operator not found")
-      }
-    case msg =>
-      log.info("Stashing: " + msg)
-      stash()
+        }
+      case PassBreakpointTo(id: String, breakpoint: GlobalBreakpoint) =>
+        val opTag = OperatorIdentifier(tag, id)
+        if (principalBiMap.containsKey(opTag)) {
+          AdvancedMessageSending.blockingAskWithRetry(
+            principalBiMap.get(opTag),
+            AssignBreakpoint(breakpoint),
+            3
+          )
+        } else {
+          throw new AmberException("target operator not found")
+        }
+      case msg =>
+        log.info("Stashing: " + msg)
+        stash()
+    }
   }
 
   private[this] def running: Receive = {
-    case KillAndRecover =>
-      killAndRecoverStage()
-    case QueryStatistics =>
-      this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
-    case PrincipalMessage.ReportStatistics(statistics) =>
-      principalStatisticsMap.update(sender, statistics)
-      triggerStatusUpdateEvent();
-    case PrincipalMessage.ReportState(state) =>
-      principalStates(sender) = state
-      state match {
-        case PrincipalState.Completed =>
-          log.info(sender + " completed")
-          if (stashedNodes.contains(sender)) {
-            AdvancedMessageSending.nonBlockingAskWithRetry(sender, ReleaseOutput, 10, 0)
-            stashedNodes.remove(sender)
+    findActorRefAutomatically orElse[Any, Unit] {
+      case KillAndRecover =>
+        killAndRecoverStage()
+      case QueryStatistics =>
+        this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
+      case PrincipalMessage.ReportStatistics(statistics) =>
+        principalStatisticsMap.update(sender, statistics)
+        triggerStatusUpdateEvent();
+      case PrincipalMessage.ReportState(state) =>
+        principalStates(sender) = state
+        state match {
+          case PrincipalState.Completed =>
+            log.info(sender + " completed")
+            if (stashedNodes.contains(sender)) {
+              AdvancedMessageSending.nonBlockingAskWithRetry(sender, ReleaseOutput, 10, 0)
+              stashedNodes.remove(sender)
+            }
+            if (principalStates.values.forall(_ == PrincipalState.Completed)) {
+              timer.stop()
+              log.info("workflow completed! Time Elapsed: " + timer.toString())
+              timer.reset()
+              safeRemoveAskHandle()
+              if (frontier.isEmpty) {
+                context.parent ! ReportState(ControllerState.Completed)
+                context.become(completed)
+                // collect all output results back to controller
+                val sinkPrincipals =
+                  this.workflow.endOperators.map(sinkOp => this.principalBiMap.get(sinkOp))
+                for (sinkPrincipal <- sinkPrincipals) {
+                  sinkPrincipal ! CollectSinkResults
+                }
+                if (this.statusUpdateAskHandle != null) {
+                  this.statusUpdateAskHandle.cancel()
+                  self ! QueryStatistics
+                }
+                //              self ! PoisonPill
+              } else {
+                recoveryMode = false
+                principalInCurrentStage.clear()
+                context.become(receive)
+                self ! ContinuedInitialization
+              }
+              unstashAll()
+            }
+          case PrincipalState.CollectingBreakpoints =>
+          case PrincipalState.Paused =>
+            if (principalStates.values.forall(_ == PrincipalState.Completed)) {
+              if (timer.isRunning) {
+                timer.stop()
+              }
+              log.info("workflow completed! Time Elapsed: " + timer.toString())
+              timer.reset()
+              safeRemoveAskHandle()
+              context.parent ! ReportState(ControllerState.Completed)
+              context.become(completed)
+              unstashAll()
+            } else if (allUnCompletedPrincipalStates.forall(_ == PrincipalState.Paused)) {
+              if (pauseTimer.isRunning) {
+                pauseTimer.stop()
+              }
+              log.info("workflow paused! Time Elapsed: " + pauseTimer.toString())
+              pauseTimer.reset()
+              safeRemoveAskHandle()
+              context.parent ! ReportState(ControllerState.Paused)
+              if (this.eventListener.workflowPausedListener != null) {
+                this.eventListener.workflowPausedListener.apply(WorkflowPaused())
+              }
+              context.become(paused)
+              unstashAll()
+            }
+          case _ => //skip others
+        }
+      case ReportGlobalBreakpointTriggered(bp, opID) =>
+        self ! Pause
+        context.parent ! ReportGlobalBreakpointTriggered(bp, opID)
+        if (this.eventListener.breakpointTriggeredListener != null) {
+          this.eventListener.breakpointTriggeredListener.apply(BreakpointTriggered(bp, opID))
+        }
+        log.info(bp.toString())
+      case Pause =>
+        pauseTimer.start()
+        workflow.operators.foreach(x => principalBiMap.get(x._1) ! Pause)
+        //workflow.startOperators.foreach(principalBiMap.get(_) ! Pause)
+        //frontier ++= workflow.startOperators.flatMap(workflow.outLinks(_))
+        log.info("received pause signal")
+        safeRemoveAskHandle()
+        periodicallyAskHandle =
+          context.system.scheduler.schedule(30.seconds, 30.seconds, self, EnforceStateCheck)
+        context.parent ! ReportState(ControllerState.Pausing)
+        context.become(pausing)
+        unstashAll()
+      case ReportPrincipalPartialCompleted(from, layer) =>
+        sender ! Ack
+        for (i <- startDependencies.keys) {
+          if (startDependencies(i).contains(from) && startDependencies(i)(from).contains(layer)) {
+            startDependencies(i)(from) -= layer
+            if (startDependencies(i)(from).isEmpty) {
+              startDependencies(i) -= from
+              if (startDependencies(i).isEmpty) {
+                startDependencies -= i
+                AdvancedMessageSending.nonBlockingAskWithRetry(principalBiMap.get(i), Start, 10, 0)
+              }
+            }
           }
+        }
+      case Resume =>
+      case msg => stash()
+    }
+  }
+
+  private[this] def pausing: Receive = {
+    findActorRefAutomatically orElse[Any, Unit] {
+      case QueryStatistics =>
+        this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
+      case PrincipalMessage.ReportStatistics(statistics) =>
+        principalStatisticsMap.update(sender, statistics)
+        triggerStatusUpdateEvent();
+      case EnforceStateCheck =>
+        frontier.flatMap(workflow.inLinks(_)).foreach(principalBiMap.get(_) ! QueryState)
+      case reportCurrentProcessingTuple: ReportCurrentProcessingTuple =>
+        if (this.eventListener.reportCurrentTuplesListener != null) {
+          this.eventListener.reportCurrentTuplesListener.apply(reportCurrentProcessingTuple);
+        }
+      case PrincipalMessage.ReportState(state) =>
+        if (
+          state != PrincipalState.Paused && state != PrincipalState.Pausing && state != PrincipalState.Completed
+        ) {
+          sender ! Pause
+        } else {
+          principalStates(sender) = state
           if (principalStates.values.forall(_ == PrincipalState.Completed)) {
             timer.stop()
+            frontier.clear()
             log.info("workflow completed! Time Elapsed: " + timer.toString())
             timer.reset()
             safeRemoveAskHandle()
             if (frontier.isEmpty) {
               context.parent ! ReportState(ControllerState.Completed)
               context.become(completed)
-              // collect all output results back to controller
-              val sinkPrincipals =
-                this.workflow.endOperators.map(sinkOp => this.principalBiMap.get(sinkOp))
-              for (sinkPrincipal <- sinkPrincipals) {
-                sinkPrincipal ! CollectSinkResults
-              }
-              if (this.statusUpdateAskHandle != null) {
-                this.statusUpdateAskHandle.cancel()
-                self ! QueryStatistics
-              }
-//              self ! PoisonPill
             } else {
-              recoveryMode = false
-              principalInCurrentStage.clear()
               context.become(receive)
               self ! ContinuedInitialization
             }
-            unstashAll()
-          }
-        case PrincipalState.CollectingBreakpoints =>
-        case PrincipalState.Paused =>
-          if (principalStates.values.forall(_ == PrincipalState.Completed)) {
-            if (timer.isRunning) {
-              timer.stop()
-            }
-            log.info("workflow completed! Time Elapsed: " + timer.toString())
-            timer.reset()
-            safeRemoveAskHandle()
-            context.parent ! ReportState(ControllerState.Completed)
-            context.become(completed)
             unstashAll()
           } else if (allUnCompletedPrincipalStates.forall(_ == PrincipalState.Paused)) {
             if (pauseTimer.isRunning) {
               pauseTimer.stop()
             }
+            frontier.clear()
             log.info("workflow paused! Time Elapsed: " + pauseTimer.toString())
             pauseTimer.reset()
             safeRemoveAskHandle()
@@ -724,248 +781,168 @@ class Controller(
             }
             context.become(paused)
             unstashAll()
-          }
-        case _ => //skip others
-      }
-    case ReportGlobalBreakpointTriggered(bp, opID) =>
-      self ! Pause
-      context.parent ! ReportGlobalBreakpointTriggered(bp, opID)
-      if (this.eventListener.breakpointTriggeredListener != null) {
-        this.eventListener.breakpointTriggeredListener.apply(BreakpointTriggered(bp, opID))
-      }
-      log.info(bp.toString())
-    case Pause =>
-      pauseTimer.start()
-      workflow.operators.foreach(x => principalBiMap.get(x._1) ! Pause)
-      //workflow.startOperators.foreach(principalBiMap.get(_) ! Pause)
-      //frontier ++= workflow.startOperators.flatMap(workflow.outLinks(_))
-      log.info("received pause signal")
-      safeRemoveAskHandle()
-      periodicallyAskHandle =
-        context.system.scheduler.schedule(30.seconds, 30.seconds, self, EnforceStateCheck)
-      context.parent ! ReportState(ControllerState.Pausing)
-      context.become(pausing)
-      unstashAll()
-    case ReportPrincipalPartialCompleted(from, layer) =>
-      sender ! Ack
-      for (i <- startDependencies.keys) {
-        if (startDependencies(i).contains(from) && startDependencies(i)(from).contains(layer)) {
-          startDependencies(i)(from) -= layer
-          if (startDependencies(i)(from).isEmpty) {
-            startDependencies(i) -= from
-            if (startDependencies(i).isEmpty) {
-              startDependencies -= i
-              AdvancedMessageSending.nonBlockingAskWithRetry(principalBiMap.get(i), Start, 10, 0)
-            }
-          }
-        }
-      }
-    case Resume =>
-    case msg    => stash()
-  }
-
-  private[this] def pausing: Receive = {
-    case QueryStatistics =>
-      this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
-    case PrincipalMessage.ReportStatistics(statistics) =>
-      principalStatisticsMap.update(sender, statistics)
-      triggerStatusUpdateEvent();
-    case EnforceStateCheck =>
-      frontier.flatMap(workflow.inLinks(_)).foreach(principalBiMap.get(_) ! QueryState)
-    case reportCurrentProcessingTuple: ReportCurrentProcessingTuple =>
-      if (this.eventListener.reportCurrentTuplesListener != null) {
-        this.eventListener.reportCurrentTuplesListener.apply(reportCurrentProcessingTuple);
-      }
-    case PrincipalMessage.ReportState(state) =>
-      if (
-        state != PrincipalState.Paused && state != PrincipalState.Pausing && state != PrincipalState.Completed
-      ) {
-        sender ! Pause
-      } else {
-        principalStates(sender) = state
-        if (principalStates.values.forall(_ == PrincipalState.Completed)) {
-          timer.stop()
-          frontier.clear()
-          log.info("workflow completed! Time Elapsed: " + timer.toString())
-          timer.reset()
-          safeRemoveAskHandle()
-          if (frontier.isEmpty) {
-            context.parent ! ReportState(ControllerState.Completed)
-            context.become(completed)
           } else {
-            context.become(receive)
-            self ! ContinuedInitialization
+            val next = frontier.filter(i =>
+              workflow
+                .inLinks(i)
+                .map(x => principalStates(principalBiMap.get(x)))
+                .forall(x => x == PrincipalState.Paused || x == PrincipalState.Completed)
+            )
+            frontier --= next
+            next.foreach(principalBiMap.get(_) ! Pause)
+            frontier ++= next.filter(workflow.outLinks.contains).flatMap(workflow.outLinks(_))
           }
-          unstashAll()
-        } else if (allUnCompletedPrincipalStates.forall(_ == PrincipalState.Paused)) {
-          if (pauseTimer.isRunning) {
-            pauseTimer.stop()
-          }
-          frontier.clear()
-          log.info("workflow paused! Time Elapsed: " + pauseTimer.toString())
-          pauseTimer.reset()
-          safeRemoveAskHandle()
-          context.parent ! ReportState(ControllerState.Paused)
-          if (this.eventListener.workflowPausedListener != null) {
-            this.eventListener.workflowPausedListener.apply(WorkflowPaused())
-          }
-          context.become(paused)
-          unstashAll()
-        } else {
-          val next = frontier.filter(i =>
-            workflow
-              .inLinks(i)
-              .map(x => principalStates(principalBiMap.get(x)))
-              .forall(x => x == PrincipalState.Paused || x == PrincipalState.Completed)
-          )
-          frontier --= next
-          next.foreach(principalBiMap.get(_) ! Pause)
-          frontier ++= next.filter(workflow.outLinks.contains).flatMap(workflow.outLinks(_))
         }
-      }
-    case ReportGlobalBreakpointTriggered(bp, opID) =>
-      context.parent ! ReportGlobalBreakpointTriggered(bp, opID)
-      if (this.eventListener.breakpointTriggeredListener != null) {
-        this.eventListener.breakpointTriggeredListener.apply(BreakpointTriggered(bp, opID))
-      }
-    case msg => stash()
+      case ReportGlobalBreakpointTriggered(bp, opID) =>
+        context.parent ! ReportGlobalBreakpointTriggered(bp, opID)
+        if (this.eventListener.breakpointTriggeredListener != null) {
+          this.eventListener.breakpointTriggeredListener.apply(BreakpointTriggered(bp, opID))
+        }
+      case msg => stash()
+    }
   }
 
   private[this] def paused: Receive = {
-    case KillAndRecover =>
-      killAndRecoverStage()
-    case QueryStatistics =>
-      this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
-    case PrincipalMessage.ReportStatistics(statistics) =>
-      principalStatisticsMap.update(sender, statistics)
-      triggerStatusUpdateEvent();
-    case Resume =>
-      workflow.endOperators.foreach(principalBiMap.get(_) ! Resume)
-      frontier ++= workflow.endOperators.flatMap(workflow.inLinks(_))
-      log.info("received resume signal")
-      safeRemoveAskHandle()
-      periodicallyAskHandle =
-        context.system.scheduler.schedule(30.seconds, 30.seconds, self, EnforceStateCheck)
-      context.parent ! ReportState(ControllerState.Resuming)
-      context.become(resuming)
-      unstashAll()
-    case Pause                    =>
-    case EnforceStateCheck        =>
-    case ModifyLogic(newMetadata) =>
-      // newLogic is now an OperatorMetadata
-      val principal: ActorRef = principalBiMap.get(newMetadata.tag)
-      log.info("modify logic received by controller, sending to principal")
-      AdvancedMessageSending.blockingAskWithRetry(principal, ModifyLogic(newMetadata), 3)
-      log.info("modify logic received by controller, sent to principal")
-      context.parent ! Ack
-      if (this.eventListener.modifyLogicCompletedListener != null) {
-        this.eventListener.modifyLogicCompletedListener.apply(ModifyLogicCompleted())
-      }
-    case SkipTupleGivenWorkerRef(actorPath, faultedTuple) =>
-      val actorRefFuture = this.context.actorSelection(actorPath).resolveOne()
-      actorRefFuture.onComplete {
-        case scala.util.Success(actorRef) =>
-          AdvancedMessageSending.blockingAskWithRetry(actorRef, SkipTuple(faultedTuple), 5)
-          if (this.eventListener.skipTupleResponseListener != null) {
-            this.eventListener.skipTupleResponseListener.apply(SkipTupleResponse())
-          }
-        case scala.util.Failure(t) =>
-          throw t
-      }
-    case PassBreakpointTo(id: String, breakpoint: GlobalBreakpoint) =>
-      val opTag = OperatorIdentifier(tag, id)
-      if (principalBiMap.containsKey(opTag)) {
-        AdvancedMessageSending.blockingAskWithRetry(
-          principalBiMap.get(opTag),
-          AssignBreakpoint(breakpoint),
-          3
-        )
-      } else {
-        eventListener.workflowExecutionErrorListener.apply(
-          ErrorOccurred(
-            Error(
-              "Breakpoint target operator not found",
-              "Engine:Controller:PassBreakpointTo",
-              Map(
-                "trace" -> Thread.currentThread().getStackTrace().mkString("\n"),
-                "faulty_op" -> opTag.getGlobalIdentity
+    findActorRefAutomatically orElse[Any, Unit] {
+      case KillAndRecover =>
+        killAndRecoverStage()
+      case QueryStatistics =>
+        this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
+      case PrincipalMessage.ReportStatistics(statistics) =>
+        principalStatisticsMap.update(sender, statistics)
+        triggerStatusUpdateEvent();
+      case Resume =>
+        workflow.endOperators.foreach(principalBiMap.get(_) ! Resume)
+        frontier ++= workflow.endOperators.flatMap(workflow.inLinks(_))
+        log.info("received resume signal")
+        safeRemoveAskHandle()
+        periodicallyAskHandle =
+          context.system.scheduler.schedule(30.seconds, 30.seconds, self, EnforceStateCheck)
+        context.parent ! ReportState(ControllerState.Resuming)
+        context.become(resuming)
+        unstashAll()
+      case Pause =>
+      case EnforceStateCheck =>
+      case ModifyLogic(newMetadata) =>
+        // newLogic is now an OperatorMetadata
+        val principal: ActorRef = principalBiMap.get(newMetadata.tag)
+        log.info("modify logic received by controller, sending to principal")
+        AdvancedMessageSending.blockingAskWithRetry(principal, ModifyLogic(newMetadata), 3)
+        log.info("modify logic received by controller, sent to principal")
+        context.parent ! Ack
+        if (this.eventListener.modifyLogicCompletedListener != null) {
+          this.eventListener.modifyLogicCompletedListener.apply(ModifyLogicCompleted())
+        }
+      case SkipTupleGivenWorkerRef(actorPath, faultedTuple) =>
+        val actorRefFuture = this.context.actorSelection(actorPath).resolveOne()
+        actorRefFuture.onComplete {
+          case scala.util.Success(actorRef) =>
+            AdvancedMessageSending.blockingAskWithRetry(actorRef, SkipTuple(faultedTuple), 5)
+            if (this.eventListener.skipTupleResponseListener != null) {
+              this.eventListener.skipTupleResponseListener.apply(SkipTupleResponse())
+            }
+          case scala.util.Failure(t) =>
+            throw t
+        }
+      case PassBreakpointTo(id: String, breakpoint: GlobalBreakpoint) =>
+        val opTag = OperatorIdentifier(tag, id)
+        if (principalBiMap.containsKey(opTag)) {
+          AdvancedMessageSending.blockingAskWithRetry(
+            principalBiMap.get(opTag),
+            AssignBreakpoint(breakpoint),
+            3
+          )
+        } else {
+          eventListener.workflowExecutionErrorListener.apply(
+            ErrorOccurred(
+              Error(
+                "Breakpoint target operator not found",
+                "Engine:Controller:PassBreakpointTo",
+                Map(
+                  "trace" -> Thread.currentThread().getStackTrace().mkString("\n"),
+                  "faulty_op" -> opTag.getGlobalIdentity
+                )
               )
             )
           )
-        )
-        throw new AmberException("target operator not found")
-      }
-    case msg => stash()
+          throw new AmberException("target operator not found")
+        }
+      case msg => stash()
+    }
   }
 
   private[this] def resuming: Receive = {
-    case QueryStatistics =>
-      this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
-    case PrincipalMessage.ReportStatistics(statistics) =>
-      principalStatisticsMap.update(sender, statistics)
-      triggerStatusUpdateEvent();
-    case EnforceStateCheck =>
-      frontier.flatMap(workflow.outLinks(_)).foreach(principalBiMap.get(_) ! QueryState)
-    case PrincipalMessage.ReportState(state) =>
-      if (
-        state != PrincipalState.Resuming && state != PrincipalState.Running && state != PrincipalState.Ready
-      ) {
-        sender ! Resume
-      } else {
-        principalStates(sender) = state
-        if (principalStates.values.forall(_ != PrincipalState.Paused)) {
-          frontier.clear()
-          if (principalStates.values.exists(_ != PrincipalState.Ready)) {
-            log.info("workflow resumed!")
-            safeRemoveAskHandle()
-            context.parent ! ReportState(ControllerState.Running)
-            context.become(running)
-            unstashAll()
-          } else {
-            log.info("workflow ready!")
-            safeRemoveAskHandle()
-            context.parent ! ReportState(ControllerState.Ready)
-            context.become(ready)
-            unstashAll()
-          }
+    findActorRefAutomatically orElse[Any, Unit] {
+      case QueryStatistics =>
+        this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
+      case PrincipalMessage.ReportStatistics(statistics) =>
+        principalStatisticsMap.update(sender, statistics)
+        triggerStatusUpdateEvent();
+      case EnforceStateCheck =>
+        frontier.flatMap(workflow.outLinks(_)).foreach(principalBiMap.get(_) ! QueryState)
+      case PrincipalMessage.ReportState(state) =>
+        if (
+          state != PrincipalState.Resuming && state != PrincipalState.Running && state != PrincipalState.Ready
+        ) {
+          sender ! Resume
         } else {
-          val next = frontier.filter(i =>
-            !workflow
-              .outLinks(i)
-              .map(x => principalStates(principalBiMap.get(x)))
-              .contains(PrincipalState.Paused)
-          )
-          frontier --= next
-          next.foreach(principalBiMap.get(_) ! Resume)
-          frontier ++= next.filter(workflow.inLinks.contains).flatMap(workflow.inLinks(_))
+          principalStates(sender) = state
+          if (principalStates.values.forall(_ != PrincipalState.Paused)) {
+            frontier.clear()
+            if (principalStates.values.exists(_ != PrincipalState.Ready)) {
+              log.info("workflow resumed!")
+              safeRemoveAskHandle()
+              context.parent ! ReportState(ControllerState.Running)
+              context.become(running)
+              unstashAll()
+            } else {
+              log.info("workflow ready!")
+              safeRemoveAskHandle()
+              context.parent ! ReportState(ControllerState.Ready)
+              context.become(ready)
+              unstashAll()
+            }
+          } else {
+            val next = frontier.filter(i =>
+              !workflow
+                .outLinks(i)
+                .map(x => principalStates(principalBiMap.get(x)))
+                .contains(PrincipalState.Paused)
+            )
+            frontier --= next
+            next.foreach(principalBiMap.get(_) ! Resume)
+            frontier ++= next.filter(workflow.inLinks.contains).flatMap(workflow.inLinks(_))
+          }
         }
-      }
-    case msg => stash()
+      case msg => stash()
+    }
   }
 
   private[this] def completed: Receive = {
-    case QueryStatistics =>
-      this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
-      this.exitIfCompleted
-    case PrincipalMessage.ReportStatistics(statistics) =>
-      principalStatisticsMap.update(sender, statistics)
-      triggerStatusUpdateEvent();
-    case PrincipalMessage.ReportOutputResult(sinkResults) =>
-      val operatorID = this.principalBiMap.inverse().get(sender()).operator
-      this.principalSinkResultMap(operatorID) = sinkResults
-      if (this.principalSinkResultMap.size == this.workflow.endOperators.size) {
-        if (this.eventListener.workflowCompletedListener != null) {
-          this.eventListener.workflowCompletedListener
-            .apply(WorkflowCompleted(this.principalSinkResultMap.toMap))
+    findActorRefAutomatically orElse[Any, Unit] {
+      case QueryStatistics =>
+        this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
+        this.exitIfCompleted
+      case PrincipalMessage.ReportStatistics(statistics) =>
+        principalStatisticsMap.update(sender, statistics)
+        triggerStatusUpdateEvent();
+      case PrincipalMessage.ReportOutputResult(sinkResults) =>
+        val operatorID = this.principalBiMap.inverse().get(sender()).operator
+        this.principalSinkResultMap(operatorID) = sinkResults
+        if (this.principalSinkResultMap.size == this.workflow.endOperators.size) {
+          if (this.eventListener.workflowCompletedListener != null) {
+            this.eventListener.workflowCompletedListener
+              .apply(WorkflowCompleted(this.principalSinkResultMap.toMap))
+          }
         }
-      }
-      this.exitIfCompleted
-    case msg =>
-      log.info("received: {} after workflow completed!", msg)
-      if (sender != self && !principalStates.keySet.contains(sender)) {
-        sender ! ReportState(ControllerState.Completed)
-      }
-      this.exitIfCompleted
+        this.exitIfCompleted
+      case msg =>
+        log.info("received: {} after workflow completed!", msg)
+        if (sender != self && !principalStates.keySet.contains(sender)) {
+          sender ! ReportState(ControllerState.Completed)
+        }
+        this.exitIfCompleted
+    }
   }
 
   private[this] def exitIfCompleted: Unit = {

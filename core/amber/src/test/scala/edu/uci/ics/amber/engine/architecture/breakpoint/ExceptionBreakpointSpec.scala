@@ -20,7 +20,7 @@ import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage.{
   ReportGlobalBreakpointTriggered,
   ReportState
 }
-import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.{DataMessage, EndSending}
+import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.{DataPayload, EndSending}
 import edu.uci.ics.amber.engine.common.ambertag.{
   LayerTag,
   LinkTag,

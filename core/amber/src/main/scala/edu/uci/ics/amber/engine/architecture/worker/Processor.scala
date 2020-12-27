@@ -2,11 +2,13 @@ package edu.uci.ics.amber.engine.architecture.worker
 
 import akka.actor.Props
 import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
-import edu.uci.ics.amber.engine.architecture.receivesemantics.FIFOAccessPort
-import edu.uci.ics.amber.engine.architecture.worker.neo.PauseManager
+import edu.uci.ics.amber.engine.architecture.messaginglayer.DataInputChannel.InternalDataMessage
+import edu.uci.ics.amber.engine.architecture.messaginglayer.DataOutputChannel.DataMessageAck
+import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.InputTuple
 import edu.uci.ics.amber.engine.common.amberexception.AmberException
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{QueryState, _}
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage._
+import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier.ActorIdentifier
 import edu.uci.ics.amber.engine.common.ambertag.{LayerTag, WorkerTag}
 import edu.uci.ics.amber.engine.common.tuple.ITuple
 import edu.uci.ics.amber.engine.common.{
@@ -27,8 +29,8 @@ object Processor {
     Props(new Processor(processor, tag))
 }
 
-class Processor(var operator: IOperatorExecutor, val tag: WorkerTag) extends WorkerBase {
-  val aliveUpstreams = new mutable.HashSet[LayerTag]
+class Processor(var operator: IOperatorExecutor, val tag: WorkerTag)
+    extends WorkerBase(ActorIdentifier(tag.getGlobalIdentity)) {
   var savedModifyLogic: mutable.Queue[(Long, Long, OpExecConfig)] =
     new mutable.Queue[(Long, Long, OpExecConfig)]()
 
@@ -44,9 +46,8 @@ class Processor(var operator: IOperatorExecutor, val tag: WorkerTag) extends Wor
     ) {
       savedModifyLogic.dequeue()
     }
-    input.reset()
     dataProcessor.resetBreakpoints()
-    messagingManager.resetDataSending()
+    batchProducer.resetPolicies()
     context.become(ready)
     if (receivedRecoveryInformation.contains((0, 0))) {
       self ! Pause
@@ -58,34 +59,19 @@ class Processor(var operator: IOperatorExecutor, val tag: WorkerTag) extends Wor
     pauseManager.resume()
   }
 
-  override def onSkipTuple(faultedTuple: FaultedTuple): Unit = {
-    super.onSkipTuple(faultedTuple)
-    if (faultedTuple.isInput) {
-      if (messagingManager.hasNextSenderTuplePair()) {
-        messagingManager.getNextSenderTuplePair()
-      }
-    } else {
-      //if it's output tuple, it will be ignored
-    }
-  }
-
   override def onResumeTuple(faultedTuple: FaultedTuple): Unit = {
     if (!faultedTuple.isInput) {
-      var i = 0
-      while (i < messagingManager.policies.length) {
-        messagingManager.policies(i).addTupleToBatch(faultedTuple.tuple)
-        i += 1
-      }
+      batchProducer.passTupleToDownstream(faultedTuple.tuple)
     } else {
-      //if its input tuple, the same breakpoint will be triggered again
+      dataProcessor.prependElement(InputTuple(faultedTuple.tuple))
     }
   }
 
   override def onModifyTuple(faultedTuple: FaultedTuple): Unit = {
     if (!faultedTuple.isInput) {
-      userFixedTuple = faultedTuple.tuple
+      batchProducer.passTupleToDownstream(faultedTuple.tuple)
     } else {
-      throw new NotImplementedError("modify output tuple in processor")
+      dataProcessor.prependElement(InputTuple(faultedTuple.tuple))
     }
   }
 
@@ -130,50 +116,12 @@ class Processor(var operator: IOperatorExecutor, val tag: WorkerTag) extends Wor
     case msg        => stash()
   }
 
-  def onSaveDataMessage(seq: Long, payload: Array[ITuple]): Unit = {
-    messagingManager.receiveMessage(DataMessage(seq, payload), sender)
-
-    while (messagingManager.hasNextSenderTuplePair()) {
-      workerInternalQueue.addSenderTuplePair(messagingManager.getNextSenderTuplePair())
-    }
-  }
-
-  def onSaveEndSending(seq: Long): Unit = {
-    if (input.registerEnd(sender, seq)) {
-      val currentEdge: LayerTag = input.actorToEdge(sender)
-      workerInternalQueue.addEndMarker(currentEdge)
-    }
-  }
-
-  def onReceiveEndSending(seq: Long): Unit = {
-    onSaveEndSending(seq)
-  }
-
-  def onReceiveDataMessage(seq: Long, payload: Array[ITuple]): Unit = {
-    messagingManager.receiveMessage(DataMessage(seq, payload), sender)
-
-    while (messagingManager.hasNextSenderTuplePair()) {
-      workerInternalQueue.addSenderTuplePair(messagingManager.getNextSenderTuplePair())
-    }
-  }
-
   override def onPaused(): Unit = {
     val (inputCount, outputCount) = dataProcessor.collectStatistics()
     log.info(s"${tag.getGlobalIdentity} paused at $inputCount , $outputCount")
     context.parent ! ReportCurrentProcessingTuple(self.path, dataProcessor.getCurrentInputTuple)
     context.parent ! RecoveryPacket(tag, inputCount, outputCount)
     context.parent ! ReportState(WorkerState.Paused)
-  }
-
-  override def onPausing(): Unit = {
-    super.onPausing()
-    pauseManager.pause()
-    // if dp thread is blocking on waiting for input tuples:
-    if (workerInternalQueue.isQueueEmpty()) {
-      // insert dummy batch to unblock dp thread
-      workerInternalQueue.addDummyInput()
-    }
-    context.become(pausing)
   }
 
   override def onInitialization(recoveryInformation: Seq[(Long, Long)]): Unit = {
@@ -192,9 +140,7 @@ class Processor(var operator: IOperatorExecutor, val tag: WorkerTag) extends Wor
   }
 
   final def activateWhenReceiveDataMessages: Receive = {
-    case EndSending(_) | DataMessage(_, _) | RequireAck(_: EndSending) | RequireAck(
-          _: DataMessage
-        ) =>
+    case InternalDataMessage(_, _, _, _) =>
       stash()
       onStart()
       context.become(running)
@@ -202,48 +148,24 @@ class Processor(var operator: IOperatorExecutor, val tag: WorkerTag) extends Wor
   }
 
   final def disallowDataMessages: Receive = {
-    case EndSending(_) | DataMessage(_, _) | RequireAck(_: EndSending) | RequireAck(
-          _: DataMessage
-        ) =>
+    case InternalDataMessage(_, _, _, _) =>
       throw new AmberException("not supposed to receive data messages at this time")
   }
 
-  final def saveDataMessages: Receive = {
-    case DataMessage(seq, payload) =>
-      onSaveDataMessage(seq, payload)
-    case RequireAck(msg: DataMessage) =>
-      sender ! AckWithSequenceNumber(msg.sequenceNumber)
-      onSaveDataMessage(msg.sequenceNumber, msg.payload)
-    case EndSending(seq) =>
-      onSaveEndSending(seq)
-    case RequireAck(msg: EndSending) =>
-      sender ! AckOfEndSending
-      onSaveEndSending(msg.sequenceNumber)
-  }
-
   final def receiveDataMessages: Receive = {
-    case EndSending(seq) =>
-      onReceiveEndSending(seq)
-    case DataMessage(seq, payload) =>
-      onReceiveDataMessage(seq, payload)
-    case RequireAck(msg: EndSending) =>
-      sender ! AckOfEndSending
-      onReceiveEndSending(msg.sequenceNumber)
-    case RequireAck(msg: DataMessage) =>
-      sender ! AckWithSequenceNumber(msg.sequenceNumber)
-      onReceiveDataMessage(msg.sequenceNumber, msg.payload)
+    case msg @ InternalDataMessage(_, _, id, _) =>
+      sender ! DataMessageAck(id)
+      dataInputChannel.handleDataMessage(msg)
   }
 
   final def allowUpdateInputLinking: Receive = {
-    case UpdateInputLinking(inputActor, edgeID, inputNum) =>
+    case UpdateInputLinking(identifier, inputNum) =>
       sender ! Ack
-      workerInternalQueue.inputMap(edgeID) = inputNum
-      aliveUpstreams.add(edgeID)
-      input.addSender(inputActor, edgeID)
+      dataInputChannel.registerInput(identifier, inputNum)
   }
 
   final def disallowUpdateInputLinking: Receive = {
-    case UpdateInputLinking(inputActor, edgeID, inputNum) =>
+    case UpdateInputLinking(edgeID, inputNum) =>
       sender ! Ack
       throw new AmberException(s"update input linking of $edgeID is not allowed at this time")
   }
@@ -279,29 +201,26 @@ class Processor(var operator: IOperatorExecutor, val tag: WorkerTag) extends Wor
   }
 
   override def postStop(): Unit = {
-    input.endToBeReceived.clear()
-    input.actorToEdge.clear()
-    input.seqNumMap.clear()
-    input.endMap.clear()
-    aliveUpstreams.clear()
   }
 
   override def ready: Receive =
     activateWhenReceiveDataMessages orElse allowUpdateInputLinking orElse super.ready
 
   override def pausedBeforeStart: Receive =
-    saveDataMessages orElse allowUpdateInputLinking orElse allowOperatorLogicUpdate orElse super.pausedBeforeStart
+    receiveDataMessages orElse allowUpdateInputLinking orElse allowOperatorLogicUpdate orElse super.pausedBeforeStart
 
   override def running: Receive =
     receiveDataMessages orElse disallowUpdateInputLinking orElse reactOnUpstreamExhausted orElse super.running
 
   override def paused: Receive =
-    saveDataMessages orElse allowUpdateInputLinking orElse allowOperatorLogicUpdate orElse super.paused
+    receiveDataMessages orElse allowUpdateInputLinking orElse allowOperatorLogicUpdate orElse super.paused
 
   override def breakpointTriggered: Receive =
-    saveDataMessages orElse allowUpdateInputLinking orElse allowOperatorLogicUpdate orElse super.breakpointTriggered
+    receiveDataMessages orElse allowUpdateInputLinking orElse allowOperatorLogicUpdate orElse super.breakpointTriggered
 
   override def completed: Receive =
     disallowDataMessages orElse disallowUpdateInputLinking orElse super.completed
+
+  override def newControlMessageHandler: Receive = allowUpdateInputLinking orElse super.newControlMessageHandler
 
 }

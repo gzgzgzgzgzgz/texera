@@ -8,6 +8,10 @@ import edu.uci.ics.amber.engine.common.IOperatorExecutor
 import edu.uci.ics.amber.engine.operators.OpExecConfig
 import akka.actor.{ActorContext, ActorRef, Address, Deploy}
 import akka.remote.RemoteScope
+import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
+import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier.ActorIdentifier
+
+import scala.collection.mutable
 
 class ProcessorWorkerLayer(
     tag: LayerTag,
@@ -23,6 +27,7 @@ class ProcessorWorkerLayer(
   override def clone(): AnyRef = {
     val res = new ProcessorWorkerLayer(tag, metadata, numWorkers, df, ds)
     res.layer = layer.clone()
+    res.identifiers = identifiers.clone()
     res
   }
 
@@ -31,6 +36,7 @@ class ProcessorWorkerLayer(
   ): Unit = {
     deployStrategy.initialize(deploymentFilter.filter(prev, all, context.self.path.address))
     layer = new Array[ActorRef](numWorkers)
+    identifiers = new Array[Identifier](numWorkers)
     for (i <- 0 until numWorkers) {
       val workerTag = WorkerTag(tag, i)
       val m = metadata(i)
@@ -42,6 +48,7 @@ class ProcessorWorkerLayer(
       }
       layer(i) =
         context.actorOf(Processor.props(m, workerTag).withDeploy(Deploy(scope = RemoteScope(d))))
+      identifiers(i) = ActorIdentifier(workerTag.getGlobalIdentity)
     }
   }
 

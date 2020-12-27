@@ -5,6 +5,9 @@ import edu.uci.ics.amber.engine.architecture.deploysemantics.deploymentfilter.De
 import edu.uci.ics.amber.engine.common.ambertag.{LayerTag, WorkerTag}
 import edu.uci.ics.amber.engine.operators.OpExecConfig
 import akka.actor.{ActorContext, ActorRef, Address}
+import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
+
+import scala.collection.mutable
 
 abstract class ActorLayer(
     val tag: LayerTag,
@@ -18,6 +21,8 @@ abstract class ActorLayer(
   var tagForFirst: WorkerTag = _
 
   var layer: Array[ActorRef] = _
+
+  var identifiers: Array[Identifier] = _
 
   def isBuilt: Boolean = layer != null
 
