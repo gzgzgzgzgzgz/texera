@@ -3,7 +3,7 @@ package edu.uci.ics.amber.engine.architecture.messaginglayer
 import java.util.concurrent.atomic.AtomicLong
 
 import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputChannel.InternalControlMessage
-import edu.uci.ics.amber.engine.common.ambermessage.neo.{ControlEvent, InternalMessage}
+import edu.uci.ics.amber.engine.common.ambermessage.neo.ControlEvent
 import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
 
 import scala.collection.mutable

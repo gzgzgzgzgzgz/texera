@@ -1,8 +1,7 @@
 package edu.uci.ics.amber.engine.architecture.worker.neo
 
-import java.util.concurrent.{Executors, LinkedBlockingDeque}
+import java.util.concurrent.Executors
 
-import akka.actor.ActorRef
 import edu.uci.ics.amber.engine.architecture.breakpoint.localbreakpoint.ExceptionBreakpoint
 import edu.uci.ics.amber.engine.architecture.messaginglayer.{BatchProducer, ControlOutputChannel}
 import edu.uci.ics.amber.engine.architecture.worker.BreakpointSupport
@@ -14,13 +13,13 @@ import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
 import edu.uci.ics.amber.engine.common.tuple.ITuple
 import edu.uci.ics.amber.engine.common.{IOperatorExecutor, InputExhausted}
 
-
 class DataProcessor( // dependencies:
     operator: IOperatorExecutor, // core logic
     controlOutputChannel: ControlOutputChannel, // to send controls to main thread
     batchProducer: BatchProducer, // to send output tuples
     pauseManager: PauseManager // to pause/resume
-) extends BreakpointSupport with WorkerInternalQueue { // TODO: make breakpointSupport as a module
+) extends BreakpointSupport
+    with WorkerInternalQueue { // TODO: make breakpointSupport as a module
 
   // dp thread stats:
   // TODO: add another variable for recovery index instead of using the counts below.
@@ -58,7 +57,7 @@ class DataProcessor( // dependencies:
     }
   }
 
-  def setCurrentTuple(tuple: Either[ITuple,InputExhausted]): Unit = {
+  def setCurrentTuple(tuple: Either[ITuple, InputExhausted]): Unit = {
     currentInputTuple = tuple
   }
 
@@ -149,8 +148,7 @@ class DataProcessor( // dependencies:
     controlOutputChannel.sendTo(Identifier.Self, LocalBreakpointTriggered())
   }
 
-
-  private[this] def handleInputTuple(): Unit ={
+  private[this] def handleInputTuple(): Unit = {
     // check pause before processing the input tuple.
     pauseManager.checkForPause()
     // if the input tuple is not a dummy tuple, process it

@@ -14,7 +14,11 @@ import scala.util.control.Breaks
   * @param dataOutputChannel
   * @param controlOutputChannel
   */
-class BatchProducer(amberID:Identifier, dataOutputChannel: DataOutputChannel, controlOutputChannel: ControlOutputChannel) {
+class BatchProducer(
+    amberID: Identifier,
+    dataOutputChannel: DataOutputChannel,
+    controlOutputChannel: ControlOutputChannel
+) {
   private var policies = new Array[DataTransferPolicy](0)
 
   /** Add down stream operator and its transfer policy
@@ -22,11 +26,14 @@ class BatchProducer(amberID:Identifier, dataOutputChannel: DataOutputChannel, co
     * @param linkTag
     * @param receivers
     */
-  def addPolicy(policy: DataTransferPolicy, linkTag:LinkTag, receivers:Array[Identifier]): Unit = {
+  def addPolicy(
+      policy: DataTransferPolicy,
+      linkTag: LinkTag,
+      receivers: Array[Identifier]
+  ): Unit = {
     var i = 0
-    receivers.foreach{
-     x =>
-       controlOutputChannel.sendTo(x, UpdateInputLinking(amberID, linkTag.inputNum))
+    receivers.foreach { x =>
+      controlOutputChannel.sendTo(x, UpdateInputLinking(amberID, linkTag.inputNum))
     }
     policy.initialize(linkTag, receivers)
     Breaks.breakable {
@@ -40,7 +47,6 @@ class BatchProducer(amberID:Identifier, dataOutputChannel: DataOutputChannel, co
       policies = policies :+ policy
     }
   }
-
 
   /** Push one tuple to the downstream, will be batched by each transfer policy.
     * Should ONLY be called by DataProcessor.
@@ -68,11 +74,11 @@ class BatchProducer(amberID:Identifier, dataOutputChannel: DataOutputChannel, co
   }
 
   /* Send the last batch and EOU marker to all down streams */
-  def emitEndMarker():Unit = {
+  def emitEndMarker(): Unit = {
     var i = 0
     while (i < policies.length) {
       val receiversAndBatches: Array[(Identifier, DataEvent)] = policies(i).noMore()
-      receiversAndBatches.foreach{
+      receiversAndBatches.foreach {
         case (id, batch) => dataOutputChannel.sendTo(id, batch)
       }
       i += 1

@@ -2,14 +2,8 @@ package edu.uci.ics.amber.engine.architecture.worker.neo
 
 import java.util.concurrent.LinkedBlockingDeque
 
-import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.{DummyInput, EndMarker, InputTuple, InternalQueueElement, SenderChangeMarker}
-import edu.uci.ics.amber.engine.common.InputExhausted
-import edu.uci.ics.amber.engine.common.ambertag.LayerTag
+import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.InternalQueueElement
 import edu.uci.ics.amber.engine.common.tuple.ITuple
-
-import scala.collection.mutable
-import com.typesafe.scalalogging.{LazyLogging, Logger}
-import edu.uci.ics.amber.engine.common.amberexception.AmberException
 
 object WorkerInternalQueue {
   // 4 kinds of elements can be accepted by internal queue
@@ -31,21 +25,20 @@ object WorkerInternalQueue {
 /** Inspired by the mailbox-ed thread, the internal queue should
   * be a part of DP thread.
   */
-trait WorkerInternalQueue{
+trait WorkerInternalQueue {
   // blocking deque for batches:
   // main thread put batches into this queue
   // tuple input (dp thread) take batches from this queue
   protected val blockingDeque = new LinkedBlockingDeque[InternalQueueElement]
 
-  def isQueueEmpty:Boolean = blockingDeque.isEmpty
+  def isQueueEmpty: Boolean = blockingDeque.isEmpty
 
-  def appendElement(elem:InternalQueueElement): Unit ={
+  def appendElement(elem: InternalQueueElement): Unit = {
     blockingDeque.add(elem)
   }
 
-
   /* called when user want to fix/resume current tuple */
-  def prependElement(elem:InternalQueueElement):Unit = {
+  def prependElement(elem: InternalQueueElement): Unit = {
     blockingDeque.addFirst(elem)
   }
 

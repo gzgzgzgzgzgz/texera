@@ -1,13 +1,17 @@
 package edu.uci.ics.amber.engine.architecture.messaginglayer
 
 import akka.actor.{Actor, ActorRef}
-import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate.{NetworkMessage, QueryActorRef, ReplyActorRef}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate.{
+  NetworkMessage,
+  QueryActorRef,
+  ReplyActorRef
+}
 import edu.uci.ics.amber.engine.common.ambermessage.neo.InternalMessage
 import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
 
 import scala.collection.mutable
 
-object NetworkOutputGate{
+object NetworkOutputGate {
 
   /** Identifier <-> ActorRef related messages
     */
@@ -18,13 +22,13 @@ object NetworkOutputGate{
     * @param uuid
     * @param internalMessage
     */
-  final case class NetworkMessage(uuid:Long, internalMessage: InternalMessage)
+  final case class NetworkMessage(uuid: Long, internalMessage: InternalMessage)
 
   /** Ack for NetworkMessage
     * note that it should NEVER be handled by the main thread
     * @param uuid
     */
-  final case class NetworkAck(uuid:Long)
+  final case class NetworkAck(uuid: Long)
 }
 
 /** This trait handles the transformation from identifier to actorRef
@@ -78,7 +82,7 @@ trait NetworkOutputGate {
     * @param message
     */
   private def forward(to: ActorRef, message: InternalMessage): Unit = {
-    to ! NetworkMessage(messageUUID,message)
+    to ! NetworkMessage(messageUUID, message)
     messageUUID += 1
   }
 

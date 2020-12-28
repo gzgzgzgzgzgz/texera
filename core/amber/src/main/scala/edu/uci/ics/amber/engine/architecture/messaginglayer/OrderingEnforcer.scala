@@ -7,11 +7,11 @@ import scala.reflect.ClassTag
 
 object OrderingEnforcer {
   def reorderMessage[V: ClassTag](
-                                   seqMap: mutable.AnyRefMap[Identifier, OrderingEnforcer[V]],
-                                   sender: Identifier,
-                                   seq: Long,
-                                   command: V,
-                                 ): Option[Iterable[V]] = {
+      seqMap: mutable.AnyRefMap[Identifier, OrderingEnforcer[V]],
+      sender: Identifier,
+      seq: Long,
+      command: V
+  ): Option[Iterable[V]] = {
     val entry = seqMap.getOrElseUpdate(sender, new OrderingEnforcer[V]())
     if (entry.ifDuplicated(seq)) {
       None
