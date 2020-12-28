@@ -8,7 +8,11 @@ import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
 import edu.uci.ics.amber.engine.architecture.common.WorkflowActor
 import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputChannel.InternalControlMessage
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate.NetworkMessage
-import edu.uci.ics.amber.engine.architecture.messaginglayer.{BatchProducer, DataInputChannel, DataOutputChannel}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.{
+  BatchProducer,
+  DataInputChannel,
+  DataOutputChannel
+}
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.DummyInput
 import edu.uci.ics.amber.engine.architecture.worker.neo._
 import edu.uci.ics.amber.engine.common.IOperatorExecutor
@@ -189,7 +193,7 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
   final def allowUpdateOutputLinking: Receive = {
     case UpdateOutputLinking(policy, tag, receivers) =>
       sender ! Ack
-      batchProducer.addPolicy(policy,tag,receivers)
+      batchProducer.addPolicy(policy, tag, receivers)
   }
 
   final def disallowUpdateOutputLinking: Receive = {
@@ -224,8 +228,8 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
   }
 
   override def receive: Receive = {
-      findActorRefAutomatically orElse
-    processNewControlMessages orElse[Any, Unit] {
+    findActorRefAutomatically orElse
+      processNewControlMessages orElse [Any, Unit] {
       case AckedWorkerInitialization(recoveryInformation) =>
         onInitialization(recoveryInformation)
         context.parent ! ReportState(WorkerState.Ready)
@@ -242,8 +246,8 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
   }
 
   def ready: Receive =
-      findActorRefAutomatically orElse
-    allowStashOrReleaseOutput orElse
+    findActorRefAutomatically orElse
+      allowStashOrReleaseOutput orElse
       processNewControlMessages orElse
       allowUpdateOutputLinking orElse //update linking
       allowModifyBreakpoints orElse //modify break points
@@ -266,8 +270,8 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse discardOthers
 
   def pausedBeforeStart: Receive =
-      findActorRefAutomatically orElse
-    allowReset orElse allowStashOrReleaseOutput orElse
+    findActorRefAutomatically orElse
+      allowReset orElse allowStashOrReleaseOutput orElse
       processNewControlMessages orElse
       allowUpdateOutputLinking orElse
       allowModifyBreakpoints orElse
@@ -294,8 +298,8 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse discardOthers
 
   def paused: Receive =
-      findActorRefAutomatically orElse
-    allowReset orElse
+    findActorRefAutomatically orElse
+      allowReset orElse
       allowStashOrReleaseOutput orElse
       processNewControlMessages orElse
       allowUpdateOutputLinking orElse
@@ -351,7 +355,7 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse discardOthers
 
   def running: Receive =
-      findActorRefAutomatically orElse
+    findActorRefAutomatically orElse
       processNewControlMessages orElse [Any, Unit] {
       case ReportFailure(e) =>
         log.info(s"received failure message")
@@ -386,8 +390,8 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse discardOthers
 
   def breakpointTriggered: Receive =
-      findActorRefAutomatically orElse
-     allowStashOrReleaseOutput orElse
+    findActorRefAutomatically orElse
+      allowStashOrReleaseOutput orElse
       processNewControlMessages orElse
       allowUpdateOutputLinking orElse
       allowQueryBreakpoint orElse
@@ -420,13 +424,13 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
           )
         )
       case DataPayload(_) | EndSending(_) => stash()
-      case Resume | Pause                    => context.parent ! ReportState(WorkerState.LocalBreakpointTriggered)
-      case LocalBreakpointTriggered          => //discard this
+      case Resume | Pause                 => context.parent ! ReportState(WorkerState.LocalBreakpointTriggered)
+      case LocalBreakpointTriggered       => //discard this
     } orElse stashOthers
 
   def completed: Receive =
     findActorRefAutomatically orElse
-    allowReset orElse allowStashOrReleaseOutput orElse
+      allowReset orElse allowStashOrReleaseOutput orElse
       disallowUpdateOutputLinking orElse
       processNewControlMessages orElse
       allowModifyBreakpoints orElse
@@ -457,8 +461,7 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
       stash()
   }
 
-
-  def newControlMessageHandler:Receive = {
+  def newControlMessageHandler: Receive = {
     case ExecutionCompleted() =>
       log.info("received complete")
       onCompleted()
@@ -466,12 +469,10 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
       unstashAll()
   }
 
-
-  def processNewControlMessages:Receive = {
-    case msg @ NetworkMessage(_,cmd:InternalControlMessage) =>
+  def processNewControlMessages: Receive = {
+    case msg @ NetworkMessage(_, cmd: InternalControlMessage) =>
       controlInputChannel.handleControlMessage(cmd)
       newControlMessageHandler(cmd.command)
   }
-
 
 }

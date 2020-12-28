@@ -9,16 +9,66 @@ import edu.uci.ics.amber.engine.architecture.worker.{WorkerState, WorkerStatisti
 import edu.uci.ics.amber.engine.common.amberexception.AmberException
 import edu.uci.ics.amber.engine.common.ambermessage.PrincipalMessage.{AssignBreakpoint, _}
 import edu.uci.ics.amber.engine.common.ambermessage.StateMessage._
-import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{Ack, AckWithInformation, CollectSinkResults, KillAndRecover, LocalBreakpointTriggered, ModifyLogic, ModifyTuple, Pause, QueryState, QueryStatistics, ReleaseOutput, RequireAck, Resume, ResumeTuple, SkipTuple, Start, StashOutput}
+import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{
+  Ack,
+  AckWithInformation,
+  CollectSinkResults,
+  KillAndRecover,
+  LocalBreakpointTriggered,
+  ModifyLogic,
+  ModifyTuple,
+  Pause,
+  QueryState,
+  QueryStatistics,
+  ReleaseOutput,
+  RequireAck,
+  Resume,
+  ResumeTuple,
+  SkipTuple,
+  Start,
+  StashOutput
+}
 import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage.ReportGlobalBreakpointTriggered
 import edu.uci.ics.amber.engine.common.ambermessage.{PrincipalMessage, WorkerMessage}
-import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.{AckedWorkerInitialization, CheckRecovery, DataPayload, EndSending, ExecutionCompleted, ExecutionPaused, QueryBreakpoint, QueryTriggeredBreakpoints, RemoveBreakpoint, ReportFailure, ReportWorkerPartialCompleted, ReportedQueriedBreakpoint, ReportedTriggeredBreakpoints, Reset, UpdateOutputLinking}
+import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.{
+  AckedWorkerInitialization,
+  CheckRecovery,
+  DataPayload,
+  EndSending,
+  ExecutionCompleted,
+  ExecutionPaused,
+  QueryBreakpoint,
+  QueryTriggeredBreakpoints,
+  RemoveBreakpoint,
+  ReportFailure,
+  ReportWorkerPartialCompleted,
+  ReportedQueriedBreakpoint,
+  ReportedTriggeredBreakpoints,
+  Reset,
+  UpdateOutputLinking
+}
 import edu.uci.ics.amber.engine.common.tuple.ITuple
 import edu.uci.ics.amber.engine.common.ambertag.{AmberTag, LayerTag, OperatorIdentifier, WorkerTag}
-import edu.uci.ics.amber.engine.common.{AdvancedMessageSending, AmberUtils, Constants, ITupleSinkOperatorExecutor, TableMetadata}
+import edu.uci.ics.amber.engine.common.{
+  AdvancedMessageSending,
+  AmberUtils,
+  Constants,
+  ITupleSinkOperatorExecutor,
+  TableMetadata
+}
 import edu.uci.ics.amber.engine.faulttolerance.recovery.RecoveryPacket
 import edu.uci.ics.amber.engine.operators.OpExecConfig
-import akka.actor.{Actor, ActorLogging, ActorPath, ActorRef, Address, Cancellable, PoisonPill, Props, Stash}
+import akka.actor.{
+  Actor,
+  ActorLogging,
+  ActorPath,
+  ActorRef,
+  Address,
+  Cancellable,
+  PoisonPill,
+  Props,
+  Stash
+}
 import akka.event.LoggingAdapter
 import akka.util.Timeout
 import akka.pattern.after
@@ -37,7 +87,11 @@ object Principal {
   def props(metadata: OpExecConfig): Props = Props(new Principal(metadata))
 }
 
-class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with Stash with NetworkOutputGate {
+class Principal(val metadata: OpExecConfig)
+    extends Actor
+    with ActorLogging
+    with Stash
+    with NetworkOutputGate {
   implicit val ec: ExecutionContext = context.dispatcher
   implicit val timeout: Timeout = 5.seconds
   implicit val logAdapter: LoggingAdapter = log
@@ -147,7 +201,7 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
   }
 
   final def ready: Receive = {
-    findActorRefAutomatically orElse[Any, Unit] {
+    findActorRefAutomatically orElse [Any, Unit] {
       case RecoveryPacket(amberTag, seq1, seq2) =>
         receivedRecoveryInformation(amberTag) = (seq1, seq2)
       case Start =>
@@ -192,9 +246,9 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
         allWorkers.foreach(worker =>
           AdvancedMessageSending.nonBlockingAskWithRetry(worker, ReleaseOutput, 10, 0)
         )
-      case GetInputLayer => sender ! workerLayers.head.clone()
+      case GetInputLayer  => sender ! workerLayers.head.clone()
       case GetOutputLayer => sender ! workerLayers.last.clone()
-      case QueryState => sender ! ReportState(PrincipalState.Ready)
+      case QueryState     => sender ! ReportState(PrincipalState.Ready)
       case QueryStatistics =>
         this.allWorkers.foreach(worker => worker ! QueryStatistics)
       case Resume => context.parent ! ReportState(PrincipalState.Ready)
@@ -215,7 +269,7 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
   }
 
   final def running: Receive = {
-    findActorRefAutomatically orElse[Any, Unit] {
+    findActorRefAutomatically orElse [Any, Unit] {
       case RecoveryPacket(amberTag, seq1, seq2) =>
         receivedRecoveryInformation(amberTag) = (seq1, seq2)
       case WorkerMessage.ReportState(state) =>
@@ -344,10 +398,10 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
         allWorkers.foreach(worker =>
           AdvancedMessageSending.nonBlockingAskWithRetry(worker, ReleaseOutput, 10, 0)
         )
-      case GetInputLayer => sender ! workerLayers.head.clone()
+      case GetInputLayer  => sender ! workerLayers.head.clone()
       case GetOutputLayer => sender ! workerLayers.last.clone()
-      case Resume => context.parent ! ReportState(PrincipalState.Running)
-      case QueryState => sender ! ReportState(PrincipalState.Running)
+      case Resume         => context.parent ! ReportState(PrincipalState.Running)
+      case QueryState     => sender ! ReportState(PrincipalState.Running)
       case QueryStatistics =>
         this.allWorkers.foreach(worker => worker ! QueryStatistics)
       case msg =>
@@ -360,7 +414,7 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
     Set(WorkerState.Completed, WorkerState.Paused, WorkerState.LocalBreakpointTriggered)
 
   final def pausing: Receive = {
-    findActorRefAutomatically orElse[Any, Unit] {
+    findActorRefAutomatically orElse [Any, Unit] {
       case RecoveryPacket(amberTag, seq1, seq2) =>
         receivedRecoveryInformation(amberTag) = (seq1, seq2)
       case EnforceStateCheck =>
@@ -426,7 +480,7 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
   }
 
   final def collectingBreakpoints: Receive = {
-    findActorRefAutomatically orElse[Any, Unit] {
+    findActorRefAutomatically orElse [Any, Unit] {
       case RecoveryPacket(amberTag, seq1, seq2) =>
         receivedRecoveryInformation(amberTag) = (seq1, seq2)
       case EnforceStateCheck =>
@@ -499,7 +553,7 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
             gbp.remove()
           }
         }
-      case GetInputLayer => sender ! workerLayers.head.clone()
+      case GetInputLayer  => sender ! workerLayers.head.clone()
       case GetOutputLayer => sender ! workerLayers.last.clone()
       case Pause =>
         if (sender != self) {
@@ -515,7 +569,7 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
     Set(WorkerState.Running, WorkerState.Ready, WorkerState.Completed)
 
   final def resuming: Receive = {
-    findActorRefAutomatically orElse[Any, Unit] {
+    findActorRefAutomatically orElse [Any, Unit] {
       case RecoveryPacket(amberTag, seq1, seq2) =>
         receivedRecoveryInformation(amberTag) = (seq1, seq2)
       case EnforceStateCheck =>
@@ -546,7 +600,7 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
             unstashAll()
           }
         }
-      case GetInputLayer => sender ! workerLayers.head.clone()
+      case GetInputLayer  => sender ! workerLayers.head.clone()
       case GetOutputLayer => sender ! workerLayers.last.clone()
       case WorkerMessage.ReportStatistics(statistics) =>
         setWorkerStatistics(sender, statistics)
@@ -567,7 +621,7 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
   }
 
   final def paused: Receive = {
-    findActorRefAutomatically orElse[Any, Unit] {
+    findActorRefAutomatically orElse [Any, Unit] {
       case KillAndRecover =>
         workerLayers.foreach { x =>
           x.layer(0) ! Reset(x.getFirstMetadata, Seq(receivedRecoveryInformation(x.tagForFirst)))
@@ -590,10 +644,10 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
         sender ! Ack
         globalBreakpoints(breakpoint.id) = breakpoint
         metadata.assignBreakpoint(workerLayers, workerStateMap, breakpoint)
-      case GetInputLayer => sender ! workerLayers.head.clone()
+      case GetInputLayer  => sender ! workerLayers.head.clone()
       case GetOutputLayer => sender ! workerLayers.last.clone()
-      case Pause => context.parent ! ReportState(PrincipalState.Paused)
-      case QueryState => sender ! ReportState(PrincipalState.Paused)
+      case Pause          => context.parent ! ReportState(PrincipalState.Paused)
+      case QueryState     => sender ! ReportState(PrincipalState.Paused)
       case ModifyLogic(newMetadata) =>
         sender ! Ack
         log.info("modify logic received by principal, sending to worker")
@@ -618,7 +672,7 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
   }
 
   final def completed: Receive = {
-    findActorRefAutomatically orElse[Any, Unit] {
+    findActorRefAutomatically orElse [Any, Unit] {
       case KillAndRecover =>
         workerLayers.foreach { x =>
           if (receivedRecoveryInformation.contains(x.tagForFirst)) {
@@ -662,9 +716,9 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
           this.workerSinkResultMap.values.foreach(v => collectedResults ++= v)
           context.parent ! PrincipalMessage.ReportOutputResult(collectedResults.toList)
         }
-      case GetInputLayer => sender ! workerLayers.head.clone()
+      case GetInputLayer  => sender ! workerLayers.head.clone()
       case GetOutputLayer => sender ! workerLayers.last.clone()
-      case msg =>
+      case msg            =>
         //log.info("received {} from {} after complete",msg,sender)
         if (sender == context.parent) {
           sender ! ReportState(PrincipalState.Completed)
@@ -673,7 +727,7 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
   }
 
   final override def receive: Receive = {
-    findActorRefAutomatically orElse[Any, Unit] {
+    findActorRefAutomatically orElse [Any, Unit] {
       case AckedPrincipalInitialization(prev: Array[(OpExecConfig, ActorLayer)]) =>
         workerLayers = metadata.topology.layers
         workerEdges = metadata.topology.links
@@ -735,7 +789,7 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
   }
 
   final def initializing: Receive = {
-    findActorRefAutomatically orElse[Any, Unit]{
+    findActorRefAutomatically orElse [Any, Unit] {
       case EnforceStateCheck =>
         for ((k, v) <- workerStateMap) {
           if (v != WorkerState.Ready) {
@@ -747,10 +801,10 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
           sender ! AckedWorkerInitialization()
         } else if (setWorkerState(sender, state)) {
           if (whenAllUncompletedWorkersBecome(WorkerState.Ready)) {
-            workerLayers.foreach{
-              layer =>
-                layer.identifiers.indices.foreach(i =>
-                  registerActorRef(layer.identifiers(i),layer.layer(i)))
+            workerLayers.foreach { layer =>
+              layer.identifiers.indices.foreach(i =>
+                registerActorRef(layer.identifiers(i), layer.layer(i))
+              )
             }
             safeRemoveAskHandle()
             workerEdges.foreach(x => x.link())

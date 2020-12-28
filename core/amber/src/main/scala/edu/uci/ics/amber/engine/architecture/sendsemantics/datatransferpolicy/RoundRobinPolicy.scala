@@ -21,8 +21,7 @@ class RoundRobinPolicy(batchSize: Int) extends DataTransferPolicy(batchSize) {
   override def noMore(): Array[(Identifier, DataEvent)] = {
     val ret = new ArrayBuffer[(Identifier, DataEvent)]
     if (currentSize > 0) {
-      ret.append((receivers(roundRobinIndex), DataPayload(batch.slice(0, currentSize)))
-      )
+      ret.append((receivers(roundRobinIndex), DataPayload(batch.slice(0, currentSize))))
     }
     ret.append((receivers(roundRobinIndex), EndOfUpstream()))
     ret.toArray

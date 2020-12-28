@@ -1,27 +1,83 @@
 package edu.uci.ics.amber.engine.architecture.controller
 
 import edu.uci.ics.amber.clustering.ClusterListener.GetAvailableNodeAddresses
-import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.{ExceptionGlobalBreakpoint, GlobalBreakpoint}
+import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.{
+  ExceptionGlobalBreakpoint,
+  GlobalBreakpoint
+}
 import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.GlobalBreakpoint
-import edu.uci.ics.amber.engine.architecture.controller.ControllerEvent.{BreakpointTriggered, ErrorOccurred, ModifyLogicCompleted, SkipTupleResponse, WorkflowCompleted, WorkflowPaused, WorkflowStatusUpdate}
+import edu.uci.ics.amber.engine.architecture.controller.ControllerEvent.{
+  BreakpointTriggered,
+  ErrorOccurred,
+  ModifyLogicCompleted,
+  SkipTupleResponse,
+  WorkflowCompleted,
+  WorkflowPaused,
+  WorkflowStatusUpdate
+}
 import edu.uci.ics.amber.engine.architecture.deploysemantics.deploystrategy.OneOnEach
 import edu.uci.ics.amber.engine.architecture.deploysemantics.deploymentfilter.FollowPrevious
-import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.{ActorLayer, GeneratorWorkerLayer, ProcessorWorkerLayer}
-import edu.uci.ics.amber.engine.faulttolerance.materializer.{HashBasedMaterializer, OutputMaterializer}
-import edu.uci.ics.amber.engine.architecture.linksemantics.{FullRoundRobin, HashBasedShuffle, LocalPartialToOne, OperatorLink}
-import edu.uci.ics.amber.engine.architecture.principal.{Principal, PrincipalState, PrincipalStatistics}
+import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.{
+  ActorLayer,
+  GeneratorWorkerLayer,
+  ProcessorWorkerLayer
+}
+import edu.uci.ics.amber.engine.faulttolerance.materializer.{
+  HashBasedMaterializer,
+  OutputMaterializer
+}
+import edu.uci.ics.amber.engine.architecture.linksemantics.{
+  FullRoundRobin,
+  HashBasedShuffle,
+  LocalPartialToOne,
+  OperatorLink
+}
+import edu.uci.ics.amber.engine.architecture.principal.{
+  Principal,
+  PrincipalState,
+  PrincipalStatistics
+}
 import edu.uci.ics.amber.engine.common.amberexception.AmberException
 import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage._
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage._
 import edu.uci.ics.amber.engine.common.ambermessage.PrincipalMessage
-import edu.uci.ics.amber.engine.common.ambermessage.PrincipalMessage.{AckedPrincipalInitialization, AssignBreakpoint, GetOutputLayer, ReportCurrentProcessingTuple, ReportOutputResult, ReportPrincipalPartialCompleted}
+import edu.uci.ics.amber.engine.common.ambermessage.PrincipalMessage.{
+  AckedPrincipalInitialization,
+  AssignBreakpoint,
+  GetOutputLayer,
+  ReportCurrentProcessingTuple,
+  ReportOutputResult,
+  ReportPrincipalPartialCompleted
+}
 import edu.uci.ics.amber.engine.common.ambermessage.StateMessage.EnforceStateCheck
-import edu.uci.ics.amber.engine.common.ambertag.{AmberTag, LayerTag, LinkTag, OperatorIdentifier, WorkflowTag}
+import edu.uci.ics.amber.engine.common.ambertag.{
+  AmberTag,
+  LayerTag,
+  LinkTag,
+  OperatorIdentifier,
+  WorkflowTag
+}
 import edu.uci.ics.amber.engine.common.tuple.ITuple
-import edu.uci.ics.amber.engine.common.{AdvancedMessageSending, AmberUtils, Constants, ISourceOperatorExecutor}
+import edu.uci.ics.amber.engine.common.{
+  AdvancedMessageSending,
+  AmberUtils,
+  Constants,
+  ISourceOperatorExecutor
+}
 import edu.uci.ics.amber.engine.faulttolerance.scanner.HDFSFolderScanSourceOperatorExecutor
 import edu.uci.ics.amber.engine.operators.OpExecConfig
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSelection, Address, Cancellable, Deploy, PoisonPill, Props, Stash}
+import akka.actor.{
+  Actor,
+  ActorLogging,
+  ActorRef,
+  ActorSelection,
+  Address,
+  Cancellable,
+  Deploy,
+  PoisonPill,
+  Props,
+  Stash
+}
 import akka.dispatch.Futures
 import akka.event.LoggingAdapter
 import akka.pattern.ask
@@ -178,7 +234,8 @@ class Controller(
     val statisticsUpdateIntervalMs: Option[Long]
 ) extends Actor
     with ActorLogging
-    with Stash with NetworkOutputGate{
+    with Stash
+    with NetworkOutputGate {
   implicit val ec: ExecutionContext = context.dispatcher
   implicit val timeout: Timeout = 5.seconds
   implicit val logAdapter: LoggingAdapter = log
@@ -310,7 +367,7 @@ class Controller(
   }
 
   override def receive: Receive = {
-    findActorRefAutomatically orElse[Any, Unit] {
+    findActorRefAutomatically orElse [Any, Unit] {
       case QueryStatistics =>
       // do nothing, not initialized yet
       case PrincipalMessage.ReportStatistics(statistics) =>
@@ -341,10 +398,10 @@ class Controller(
                 case AckWithInformation(z) =>
                   workflow.operators(x) = z.asInstanceOf[OpExecConfig]
                   val layers = workflow.operators(x).topology.layers
-                  layers.foreach {
-                    layer =>
-                      layer.identifiers.indices.foreach(i =>
-                        registerActorRef(layer.identifiers(i), layer.layer(i)))
+                  layers.foreach { layer =>
+                    layer.identifiers.indices.foreach(i =>
+                      registerActorRef(layer.identifiers(i), layer.layer(i))
+                    )
                   }
                   //assign exception breakpoint before all breakpoints
                   if (!recoveryMode) {
@@ -390,10 +447,10 @@ class Controller(
                 case AckWithInformation(z) =>
                   workflow.operators(x) = z.asInstanceOf[OpExecConfig]
                   val layers = workflow.operators(x).topology.layers
-                  layers.foreach {
-                    layer =>
-                      layer.identifiers.indices.foreach(i =>
-                        registerActorRef(layer.identifiers(i), layer.layer(i)))
+                  layers.foreach { layer =>
+                    layer.identifiers.indices.foreach(i =>
+                      registerActorRef(layer.identifiers(i), layer.layer(i))
+                    )
                   }
                   //assign exception breakpoint before all breakpoints
                   if (!recoveryMode) {
@@ -506,10 +563,10 @@ class Controller(
                   case AckWithInformation(z) =>
                     workflow.operators(k) = z.asInstanceOf[OpExecConfig]
                     val layers = workflow.operators(k).topology.layers
-                    layers.foreach {
-                      layer =>
-                        layer.identifiers.indices.foreach(i =>
-                          registerActorRef(layer.identifiers(i), layer.layer(i)))
+                    layers.foreach { layer =>
+                      layer.identifiers.indices.foreach(i =>
+                        registerActorRef(layer.identifiers(i), layer.layer(i))
+                      )
                     }
                     //assign exception breakpoint before all breakpoints
                     if (!recoveryMode) {
@@ -560,7 +617,7 @@ class Controller(
   }
 
   private[this] def ready: Receive = {
-    findActorRefAutomatically orElse[Any, Unit] {
+    findActorRefAutomatically orElse [Any, Unit] {
       case QueryStatistics =>
         this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
       case PrincipalMessage.ReportStatistics(statistics) =>
@@ -623,7 +680,7 @@ class Controller(
   }
 
   private[this] def running: Receive = {
-    findActorRefAutomatically orElse[Any, Unit] {
+    findActorRefAutomatically orElse [Any, Unit] {
       case KillAndRecover =>
         killAndRecoverStage()
       case QueryStatistics =>
@@ -729,12 +786,12 @@ class Controller(
           }
         }
       case Resume =>
-      case msg => stash()
+      case msg    => stash()
     }
   }
 
   private[this] def pausing: Receive = {
-    findActorRefAutomatically orElse[Any, Unit] {
+    findActorRefAutomatically orElse [Any, Unit] {
       case QueryStatistics =>
         this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
       case PrincipalMessage.ReportStatistics(statistics) =>
@@ -803,7 +860,7 @@ class Controller(
   }
 
   private[this] def paused: Receive = {
-    findActorRefAutomatically orElse[Any, Unit] {
+    findActorRefAutomatically orElse [Any, Unit] {
       case KillAndRecover =>
         killAndRecoverStage()
       case QueryStatistics =>
@@ -821,8 +878,8 @@ class Controller(
         context.parent ! ReportState(ControllerState.Resuming)
         context.become(resuming)
         unstashAll()
-      case Pause =>
-      case EnforceStateCheck =>
+      case Pause                    =>
+      case EnforceStateCheck        =>
       case ModifyLogic(newMetadata) =>
         // newLogic is now an OperatorMetadata
         val principal: ActorRef = principalBiMap.get(newMetadata.tag)
@@ -872,7 +929,7 @@ class Controller(
   }
 
   private[this] def resuming: Receive = {
-    findActorRefAutomatically orElse[Any, Unit] {
+    findActorRefAutomatically orElse [Any, Unit] {
       case QueryStatistics =>
         this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
       case PrincipalMessage.ReportStatistics(statistics) =>
@@ -919,7 +976,7 @@ class Controller(
   }
 
   private[this] def completed: Receive = {
-    findActorRefAutomatically orElse[Any, Unit] {
+    findActorRefAutomatically orElse [Any, Unit] {
       case QueryStatistics =>
         this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
         this.exitIfCompleted

@@ -27,9 +27,7 @@ class LocalPartialToOne(from: ActorLayer, to: ActorLayer, batchSize: Int, inputN
     val tos = to.layer.groupBy(actor => actor.path.address.hostPort)
     val actorToIdentifier = (from.layer.indices.map(x =>
       from.layer(x) -> from.identifiers(x)
-    ) ++ to.layer.indices.map(x =>
-      to.layer(x) -> to.identifiers(x)
-    )).toMap
+    ) ++ to.layer.indices.map(x => to.layer(x) -> to.identifiers(x))).toMap
     assert(froms.keySet == tos.keySet && tos.forall(x => x._2.length == 1))
     froms.foreach(x => {
       for (i <- x._2.indices) {
@@ -38,7 +36,8 @@ class LocalPartialToOne(from: ActorLayer, to: ActorLayer, batchSize: Int, inputN
           UpdateOutputLinking(
             new OneToOnePolicy(batchSize),
             tag,
-            Array(actorToIdentifier(tos(x._1).head))),
+            Array(actorToIdentifier(tos(x._1).head))
+          ),
           10
         )
       }

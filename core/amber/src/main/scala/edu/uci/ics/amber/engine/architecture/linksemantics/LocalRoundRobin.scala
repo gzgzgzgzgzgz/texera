@@ -26,11 +26,10 @@ class LocalRoundRobin(from: ActorLayer, to: ActorLayer, batchSize: Int, inputNum
     val matched = froms.keySet.intersect(tos.keySet)
     val actorToIdentifier = (from.layer.indices.map(x =>
       from.layer(x) -> from.identifiers(x)
-    ) ++ to.layer.indices.map(x =>
-      to.layer(x) -> to.identifiers(x)
-    )).toMap
+    ) ++ to.layer.indices.map(x => to.layer(x) -> to.identifiers(x))).toMap
     matched.foreach(x => {
-      val receivers: Array[Identifier] = (tos(x) ++ isolatedtos.flatMap(x => tos(x))).map(actorToIdentifier)
+      val receivers: Array[Identifier] =
+        (tos(x) ++ isolatedtos.flatMap(x => tos(x))).map(actorToIdentifier)
       froms(x).foreach(y =>
         AdvancedMessageSending.blockingAskWithRetry(
           y,
@@ -43,10 +42,7 @@ class LocalRoundRobin(from: ActorLayer, to: ActorLayer, batchSize: Int, inputNum
       froms(x).foreach(y =>
         AdvancedMessageSending.blockingAskWithRetry(
           y,
-          UpdateOutputLinking(
-            new RoundRobinPolicy(batchSize),
-            tag,
-            to.identifiers),
+          UpdateOutputLinking(new RoundRobinPolicy(batchSize), tag, to.identifiers),
           10
         )
       )

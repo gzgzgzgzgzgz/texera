@@ -21,15 +21,17 @@ class LocalOneToOne(from: ActorLayer, to: ActorLayer, batchSize: Int, inputNum: 
     val tos = to.layer.groupBy(actor => actor.path.address.hostPort)
     val actorToIdentifier = (from.layer.indices.map(x =>
       from.layer(x) -> from.identifiers(x)
-    ) ++ to.layer.indices.map(x =>
-      to.layer(x) -> to.identifiers(x)
-    )).toMap
+    ) ++ to.layer.indices.map(x => to.layer(x) -> to.identifiers(x))).toMap
     assert(froms.keySet == tos.keySet && froms.forall(x => x._2.length == tos(x._1).length))
     froms.foreach(x => {
       for (i <- x._2.indices) {
         AdvancedMessageSending.blockingAskWithRetry(
           x._2(i),
-          UpdateOutputLinking(new OneToOnePolicy(batchSize), tag, Array(actorToIdentifier(tos(x._1)(i)))),
+          UpdateOutputLinking(
+            new OneToOnePolicy(batchSize),
+            tag,
+            Array(actorToIdentifier(tos(x._1)(i)))
+          ),
           10
         )
       }

@@ -9,14 +9,12 @@ import akka.actor.{ActorPath, ActorRef}
 import edu.uci.ics.amber.engine.common.ambermessage.neo.{ControlEvent, DataEvent, InternalMessage}
 import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
 
-
 object WorkerMessage {
 
   final case class AckedWorkerInitialization(recoveryInformation: Seq[(Long, Long)] = Nil)
       extends ControlEvent
 
-  final case class UpdateInputLinking(fromLayer: Identifier, inputNum: Int)
-      extends ControlEvent
+  final case class UpdateInputLinking(fromLayer: Identifier, inputNum: Int) extends ControlEvent
 
   final case class UpdateOutputLinking(
       policy: DataTransferPolicy,
@@ -62,11 +60,9 @@ object WorkerMessage {
 
   final case class Reset(core: Any, recoveryInformation: Seq[(Long, Long)]) extends ControlEvent
 
-
   final case class EndOfUpstream() extends DataEvent
 
-  final case class DataPayload(payload: Array[ITuple])
-      extends DataEvent {
+  final case class DataPayload(payload: Array[ITuple]) extends DataEvent {
     override def equals(obj: Any): Boolean = {
       if (!obj.isInstanceOf[DataPayload]) return false
       val other = obj.asInstanceOf[DataPayload]

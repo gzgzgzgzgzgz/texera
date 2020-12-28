@@ -19,19 +19,21 @@ class HashBasedShufflePolicy(batchSize: Int, val hashFunc: ITuple => Int)
   var currentSizes: Array[Int] = _
 
   override def noMore(): Array[(Identifier, DataEvent)] = {
-    val receiversAndBatches = new ArrayBuffer[(Identifier,DataEvent)]
+    val receiversAndBatches = new ArrayBuffer[(Identifier, DataEvent)]
     for (k <- receivers.indices) {
       if (currentSizes(k) > 0) {
-        receiversAndBatches.append((receivers(k), DataPayload(batches(k).slice(0, currentSizes(k)))))
+        receiversAndBatches.append(
+          (receivers(k), DataPayload(batches(k).slice(0, currentSizes(k))))
+        )
       }
-      receiversAndBatches.append((receivers(k),EndOfUpstream()))
+      receiversAndBatches.append((receivers(k), EndOfUpstream()))
     }
     receiversAndBatches.toArray
   }
 
   override def addTupleToBatch(
       tuple: ITuple
-  ): Option[(Identifier,DataEvent)] = {
+  ): Option[(Identifier, DataEvent)] = {
     val numBuckets = receivers.length
     val index = (hashFunc(tuple) % numBuckets + numBuckets) % numBuckets
     batches(index)(currentSizes(index)) = tuple
@@ -56,7 +58,7 @@ class HashBasedShufflePolicy(batchSize: Int, val hashFunc: ITuple => Int)
     initializeInternalState(receivers)
   }
 
-  private[this] def initializeInternalState(_receivers: Array[Identifier]): Unit ={
+  private[this] def initializeInternalState(_receivers: Array[Identifier]): Unit = {
     batches = new Array[Array[ITuple]](_receivers.length)
     for (i <- _receivers.indices) {
       batches(i) = new Array[ITuple](batchSize)

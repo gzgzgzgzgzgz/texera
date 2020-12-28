@@ -3,12 +3,20 @@ package edu.uci.ics.amber.engine.architecture.worker
 import akka.actor.{ActorLogging, Props, Stash}
 import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
 import edu.uci.ics.amber.engine.architecture.worker.neo.PauseManager
-import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.{DummyInput, EndMarker, EndOfAllMarker}
+import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.{
+  DummyInput,
+  EndMarker,
+  EndOfAllMarker
+}
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage._
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage._
 import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier.ActorIdentifier
 import edu.uci.ics.amber.engine.common.ambertag.{LayerTag, WorkerTag}
-import edu.uci.ics.amber.engine.common.{ElidableStatement, IOperatorExecutor, ISourceOperatorExecutor}
+import edu.uci.ics.amber.engine.common.{
+  ElidableStatement,
+  IOperatorExecutor,
+  ISourceOperatorExecutor
+}
 import edu.uci.ics.amber.engine.faulttolerance.recovery.RecoveryPacket
 
 import scala.annotation.elidable
