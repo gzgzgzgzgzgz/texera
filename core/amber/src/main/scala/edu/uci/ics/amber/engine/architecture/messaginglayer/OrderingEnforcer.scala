@@ -21,6 +21,7 @@ object OrderingEnforcer {
   }
 }
 
+/* The abstracted FIFO/exactly-once logic */
 class OrderingEnforcer[T: ClassTag] {
 
   var current = 0L

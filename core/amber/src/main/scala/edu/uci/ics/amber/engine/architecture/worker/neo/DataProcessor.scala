@@ -4,7 +4,7 @@ import java.util.concurrent.{Executors, LinkedBlockingDeque}
 
 import akka.actor.ActorRef
 import edu.uci.ics.amber.engine.architecture.breakpoint.localbreakpoint.ExceptionBreakpoint
-import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlOutputChannel
+import edu.uci.ics.amber.engine.architecture.messaginglayer.{BatchProducer, ControlOutputChannel}
 import edu.uci.ics.amber.engine.architecture.worker.BreakpointSupport
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue._
 import edu.uci.ics.amber.engine.common.amberexception.BreakpointException
@@ -105,11 +105,11 @@ class DataProcessor( // dependencies:
     */
   @throws[Exception]
   private[this] def runDPThreadMainLogic(): Unit = {
-    // main DP loop: runs until all upstreams exhaust.
+    // main DP loop
     while (!isCompleted) {
+      // take the next data element from internal queue, blocks if not available.
       blockingDeque.take() match {
         case InputTuple(tuple) =>
-          // take the next input tuple from tupleInput, blocks if no tuple available.
           currentInputTuple = Left(tuple)
           handleInputTuple()
         case SenderChangeMarker(newSenderRef) =>
@@ -118,9 +118,11 @@ class DataProcessor( // dependencies:
           currentInputTuple = Right(InputExhausted())
           handleInputTuple()
         case EndOfAllMarker() =>
+          // end of processing, break DP loop
           isCompleted = true
           batchProducer.emitEndMarker()
         case DummyInput() =>
+          // do a pause check
           pauseManager.checkForPause()
       }
     }

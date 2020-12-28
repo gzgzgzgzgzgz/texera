@@ -15,8 +15,7 @@ object ControlInputChannel {
                                          ) extends InternalMessage
 }
 
-class ControlInputChannel extends LazyLogging{
-
+class ControlInputChannel {
   private val controlOrderingEnforcer =
     new mutable.AnyRefMap[Identifier, OrderingEnforcer[ControlEvent]]()
 
@@ -34,7 +33,7 @@ class ControlInputChannel extends LazyLogging{
   private def processControlEvents(iter: Iterable[ControlEvent]): Unit = {
     iter.foreach {
       case other =>
-      //skip
+      //TODO: implement future/promise here
     }
   }
 }

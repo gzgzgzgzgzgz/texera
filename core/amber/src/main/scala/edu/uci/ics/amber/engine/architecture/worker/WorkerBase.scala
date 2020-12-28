@@ -8,7 +8,7 @@ import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
 import edu.uci.ics.amber.engine.architecture.common.WorkflowActor
 import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputChannel.InternalControlMessage
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate.NetworkMessage
-import edu.uci.ics.amber.engine.architecture.messaginglayer.{DataInputChannel, DataOutputChannel}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.{BatchProducer, DataInputChannel, DataOutputChannel}
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.DummyInput
 import edu.uci.ics.amber.engine.architecture.worker.neo._
 import edu.uci.ics.amber.engine.common.IOperatorExecutor

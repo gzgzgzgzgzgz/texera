@@ -9,6 +9,10 @@ import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
 
 import scala.collection.mutable
 
+/** This class handles the assignment of sequence numbers to data
+  * The internal logic can send data messages to other actor without knowing
+  * where the actor is and without determining the sequence number.
+  */
 class DataOutputChannel(amberID:Identifier, networkOutput: NetworkOutputGate) {
 
   private val dataMessageSeqMap = new mutable.AnyRefMap[Identifier, AtomicLong]()

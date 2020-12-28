@@ -8,7 +8,10 @@ import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
 
 import scala.collection.mutable
 
-
+/** This class handles the assignment of sequence numbers to controls
+  * The internal logic can send control messages to other actor without knowing
+  * where the actor is and without determining the sequence number.
+  */
 class ControlOutputChannel(amberID: Identifier, networkOutput: NetworkOutputGate) {
   private val controlMessageSeqMap = new mutable.AnyRefMap[Identifier, AtomicLong]()
 

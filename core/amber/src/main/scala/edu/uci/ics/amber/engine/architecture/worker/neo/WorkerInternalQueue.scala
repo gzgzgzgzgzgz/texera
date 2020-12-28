@@ -28,7 +28,10 @@ object WorkerInternalQueue {
   case class DummyInput() extends InternalQueueElement
 }
 
-trait WorkerInternalQueue extends LazyLogging {
+/** Inspired by the mailbox-ed thread, the internal queue should
+  * be a part of DP thread.
+  */
+trait WorkerInternalQueue{
   // blocking deque for batches:
   // main thread put batches into this queue
   // tuple input (dp thread) take batches from this queue
@@ -40,6 +43,8 @@ trait WorkerInternalQueue extends LazyLogging {
     blockingDeque.add(elem)
   }
 
+
+  /* called when user want to fix/resume current tuple */
   def prependElement(elem:InternalQueueElement):Unit = {
     blockingDeque.addFirst(elem)
   }
