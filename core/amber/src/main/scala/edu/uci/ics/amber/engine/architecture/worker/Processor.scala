@@ -3,7 +3,7 @@ package edu.uci.ics.amber.engine.architecture.worker
 import akka.actor.Props
 import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
 import edu.uci.ics.amber.engine.architecture.messaginglayer.DataInputChannel.InternalDataMessage
-import edu.uci.ics.amber.engine.architecture.messaginglayer.DataOutputChannel.DataMessageAck
+import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate.NetworkMessage
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.InputTuple
 import edu.uci.ics.amber.engine.common.amberexception.AmberException
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{QueryState, _}
@@ -11,12 +11,7 @@ import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage._
 import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier.ActorIdentifier
 import edu.uci.ics.amber.engine.common.ambertag.{LayerTag, WorkerTag}
 import edu.uci.ics.amber.engine.common.tuple.ITuple
-import edu.uci.ics.amber.engine.common.{
-  AdvancedMessageSending,
-  ElidableStatement,
-  IOperatorExecutor,
-  ITupleSinkOperatorExecutor
-}
+import edu.uci.ics.amber.engine.common.{AdvancedMessageSending, ElidableStatement, IOperatorExecutor, ITupleSinkOperatorExecutor}
 import edu.uci.ics.amber.engine.faulttolerance.recovery.RecoveryPacket
 import edu.uci.ics.amber.engine.operators.OpExecConfig
 
@@ -140,7 +135,7 @@ class Processor(var operator: IOperatorExecutor, val tag: WorkerTag)
   }
 
   final def activateWhenReceiveDataMessages: Receive = {
-    case InternalDataMessage(_, _, _, _) =>
+    case msg @ NetworkMessage(_,data:InternalDataMessage) =>
       stash()
       onStart()
       context.become(running)
@@ -148,14 +143,13 @@ class Processor(var operator: IOperatorExecutor, val tag: WorkerTag)
   }
 
   final def disallowDataMessages: Receive = {
-    case InternalDataMessage(_, _, _, _) =>
+    case  msg @ NetworkMessage(_,data:InternalDataMessage) =>
       throw new AmberException("not supposed to receive data messages at this time")
   }
 
   final def receiveDataMessages: Receive = {
-    case msg @ InternalDataMessage(_, _, id, _) =>
-      sender ! DataMessageAck(id)
-      dataInputChannel.handleDataMessage(msg)
+    case msg @ NetworkMessage(_,data:InternalDataMessage) =>
+      dataInputChannel.handleDataMessage(data)
   }
 
   final def allowUpdateInputLinking: Receive = {

@@ -33,7 +33,7 @@ import play.api.libs.json.{JsArray, JsValue, Json}
 import com.google.common.collect.BiMap
 import com.google.common.collect.HashBiMap
 import edu.uci.ics.amber.backenderror.Error
-import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutput
+import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate
 
 import collection.JavaConverters._
 import scala.collection.mutable
@@ -178,7 +178,7 @@ class Controller(
     val statisticsUpdateIntervalMs: Option[Long]
 ) extends Actor
     with ActorLogging
-    with Stash with NetworkOutput{
+    with Stash with NetworkOutputGate{
   implicit val ec: ExecutionContext = context.dispatcher
   implicit val timeout: Timeout = 5.seconds
   implicit val logAdapter: LoggingAdapter = log

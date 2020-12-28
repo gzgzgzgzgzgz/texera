@@ -7,8 +7,7 @@ import com.softwaremill.macwire.wire
 import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
 import edu.uci.ics.amber.engine.architecture.common.WorkflowActor
 import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputChannel.InternalControlMessage
-import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlOutputChannel.ControlMessageAck
-import edu.uci.ics.amber.engine.architecture.messaginglayer.DataOutputChannel.DataMessageAck
+import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate.NetworkMessage
 import edu.uci.ics.amber.engine.architecture.messaginglayer.{DataInputChannel, DataOutputChannel}
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.DummyInput
 import edu.uci.ics.amber.engine.architecture.worker.neo._
@@ -225,7 +224,6 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
   }
 
   override def receive: Receive = {
-    ackNewDataMessages orElse
       findActorRefAutomatically orElse
     processNewControlMessages orElse[Any, Unit] {
       case AckedWorkerInitialization(recoveryInformation) =>
@@ -244,7 +242,6 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
   }
 
   def ready: Receive =
-    ackNewDataMessages orElse
       findActorRefAutomatically orElse
     allowStashOrReleaseOutput orElse
       processNewControlMessages orElse
@@ -269,7 +266,6 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse discardOthers
 
   def pausedBeforeStart: Receive =
-    ackNewDataMessages orElse
       findActorRefAutomatically orElse
     allowReset orElse allowStashOrReleaseOutput orElse
       processNewControlMessages orElse
@@ -298,7 +294,6 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse discardOthers
 
   def paused: Receive =
-    ackNewDataMessages orElse
       findActorRefAutomatically orElse
     allowReset orElse
       allowStashOrReleaseOutput orElse
@@ -356,17 +351,13 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse discardOthers
 
   def running: Receive =
-    ackNewDataMessages orElse
       findActorRefAutomatically orElse
-    allowReset orElse allowStashOrReleaseOutput orElse
-      processNewControlMessages orElse
-      disallowUpdateOutputLinking orElse
-      disallowModifyBreakpoints orElse
-      disallowQueryBreakpoint orElse
-      disallowQueryTriggeredBreakpoints orElse [Any, Unit] {
+      processNewControlMessages orElse [Any, Unit] {
       case ReportFailure(e) =>
+        log.info(s"received failure message")
         throw e
       case ExecutionPaused =>
+        log.info(s"received Excution Pause message")
         onPaused()
         context.become(paused)
         unstashAll()
@@ -395,7 +386,6 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse discardOthers
 
   def breakpointTriggered: Receive =
-    ackNewDataMessages orElse
       findActorRefAutomatically orElse
      allowStashOrReleaseOutput orElse
       processNewControlMessages orElse
@@ -435,7 +425,6 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse stashOthers
 
   def completed: Receive =
-    ackNewDataMessages orElse
     findActorRefAutomatically orElse
     allowReset orElse allowStashOrReleaseOutput orElse
       disallowUpdateOutputLinking orElse
@@ -479,18 +468,10 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
 
 
   def processNewControlMessages:Receive = {
-    case msg @ InternalControlMessage(_,_,id,cmd) =>
-      sender ! ControlMessageAck(id)
-      controlInputChannel.handleControlMessage(msg)
-      newControlMessageHandler(cmd)
-    case ack: ControlMessageAck =>
-      controlOutputChannel.ackControlMessage(ack)
+    case msg @ NetworkMessage(_,cmd:InternalControlMessage) =>
+      controlInputChannel.handleControlMessage(cmd)
+      newControlMessageHandler(cmd.command)
   }
 
-
-  def ackNewDataMessages:Receive = {
-    case ack: DataMessageAck =>
-      dataOutputChannel.ackDataMessage(ack)
-  }
 
 }

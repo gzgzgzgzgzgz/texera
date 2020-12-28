@@ -1,24 +1,26 @@
 package edu.uci.ics.amber.engine.architecture.messaginglayer
 
 import akka.actor.{Actor, ActorRef}
-import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutput.{QueryActorRef, ReplyActorRef}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate.{NetworkMessage, QueryActorRef, ReplyActorRef}
 import edu.uci.ics.amber.engine.common.ambermessage.neo.InternalMessage
 import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
 
 import scala.collection.mutable
 
-object NetworkOutput{
+object NetworkOutputGate{
   final case class QueryActorRef(id: Identifier)
-
   final case class ReplyActorRef(id: Identifier, ref: ActorRef)
+  final case class NetworkMessage(uuid:Long, internalMessage: InternalMessage)
+  final case class NetworkAck(uuid:Long)
 }
 
 
-trait NetworkOutput {
+trait NetworkOutputGate {
   this: Actor =>
 
   private val idMap = mutable.HashMap[Identifier, ActorRef]()
   private val messageStash = mutable.HashMap[Identifier, mutable.Queue[InternalMessage]]()
+  private var messageUUID = 0L
 
   //add self into idMap
   idMap(Identifier.Self) = self
@@ -44,7 +46,8 @@ trait NetworkOutput {
   }
 
   private def forwardInternal(to: ActorRef, message: InternalMessage): Unit = {
-    to ! message
+    to ! NetworkMessage(messageUUID,message)
+    messageUUID += 1
   }
 
   def registerActorRef(id: Identifier, ref: ActorRef): Unit = {

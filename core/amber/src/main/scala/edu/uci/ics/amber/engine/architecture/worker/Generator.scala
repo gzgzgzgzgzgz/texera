@@ -77,7 +77,7 @@ class Generator(var operator: IOperatorExecutor, val tag: WorkerTag)
   }
 
   override def onModifyTuple(faultedTuple: FaultedTuple): Unit = {
-    dataProcessor
+    batchProducer.passTupleToDownstream(faultedTuple.tuple)
   }
 
   override def onInitialization(recoveryInformation: Seq[(Long, Long)]): Unit = {

@@ -25,7 +25,7 @@ import akka.pattern.after
 import akka.pattern.ask
 import com.google.common.base.Stopwatch
 import edu.uci.ics.amber.engine.architecture.common.WorkflowActor
-import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutput
+import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -37,7 +37,7 @@ object Principal {
   def props(metadata: OpExecConfig): Props = Props(new Principal(metadata))
 }
 
-class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with Stash with NetworkOutput {
+class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with Stash with NetworkOutputGate {
   implicit val ec: ExecutionContext = context.dispatcher
   implicit val timeout: Timeout = 5.seconds
   implicit val logAdapter: LoggingAdapter = log
@@ -306,6 +306,8 @@ class Principal(val metadata: OpExecConfig) extends Actor with ActorLogging with
         if (sender != self) {
           isUserPaused = true
         }
+        log.info(s"received pause message, allworkers: ${allWorkers.mkString(",")}")
+
         allWorkers.foreach(worker => worker ! Pause)
         safeRemoveAskHandle()
         periodicallyAskHandle =

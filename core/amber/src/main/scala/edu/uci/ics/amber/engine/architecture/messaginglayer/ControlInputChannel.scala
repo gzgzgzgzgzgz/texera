@@ -11,7 +11,6 @@ object ControlInputChannel {
   final case class InternalControlMessage(
                                            from: Identifier,
                                            sequenceNumber: Long,
-                                           messageIdentifier: Long,
                                            command: ControlEvent,
                                          ) extends InternalMessage
 }

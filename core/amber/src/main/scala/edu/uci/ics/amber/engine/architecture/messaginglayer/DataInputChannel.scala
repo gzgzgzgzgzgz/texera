@@ -13,7 +13,6 @@ object DataInputChannel {
   final case class InternalDataMessage(
                                         from: Identifier,
                                         sequenceNumber: Long,
-                                        messageIdentifier: Long,
                                         command: DataEvent,
                                       ) extends InternalMessage
 }
