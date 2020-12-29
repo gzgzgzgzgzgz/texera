@@ -2,7 +2,7 @@ package edu.uci.ics.amber.engine.architecture.worker
 
 import akka.actor.Props
 import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
-import edu.uci.ics.amber.engine.architecture.messaginglayer.DataInputChannel.InternalDataMessage
+import edu.uci.ics.amber.engine.architecture.messaginglayer.DataInputPort.InternalDataMessage
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate.NetworkMessage
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.InputTuple
 import edu.uci.ics.amber.engine.common.amberexception.AmberException
@@ -160,7 +160,7 @@ class Processor(var operator: IOperatorExecutor, val tag: WorkerTag)
   final def allowUpdateInputLinking: Receive = {
     case UpdateInputLinking(identifier, inputNum) =>
       sender ! Ack
-      dataInputChannel.registerInput(identifier, inputNum)
+      tupleProducer.registerInput(identifier, inputNum)
   }
 
   final def disallowUpdateInputLinking: Receive = {

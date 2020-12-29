@@ -9,6 +9,7 @@ object WorkerInternalQueue {
   // 4 kinds of elements can be accepted by internal queue
   trait InternalQueueElement
 
+  //TODO: check if this is creating overhead
   case class InputTuple(tuple: ITuple) extends InternalQueueElement
   case class SenderChangeMarker(newSenderRef: Int) extends InternalQueueElement
   case class EndMarker() extends InternalQueueElement

@@ -2,7 +2,7 @@ package edu.uci.ics.amber.engine.architecture.messaginglayer
 
 import java.util.concurrent.atomic.AtomicLong
 
-import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputChannel.InternalControlMessage
+import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.InternalControlMessage
 import edu.uci.ics.amber.engine.common.ambermessage.neo.ControlEvent
 import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
 
@@ -12,7 +12,7 @@ import scala.collection.mutable
   * The internal logic can send control messages to other actor without knowing
   * where the actor is and without determining the sequence number.
   */
-class ControlOutputChannel(amberID: Identifier, networkOutput: NetworkOutputGate) {
+class ControlOutputPort(amberID: Identifier, networkOutput: NetworkOutputGate) {
   private val controlMessageSeqMap = new mutable.AnyRefMap[Identifier, AtomicLong]()
 
   def sendTo(to: Identifier, event: ControlEvent): Unit = {

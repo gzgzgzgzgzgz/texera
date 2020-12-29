@@ -2,7 +2,7 @@ package edu.uci.ics.amber.engine.architecture.messaginglayer
 
 import java.util.concurrent.atomic.AtomicLong
 
-import edu.uci.ics.amber.engine.architecture.messaginglayer.DataInputChannel.InternalDataMessage
+import edu.uci.ics.amber.engine.architecture.messaginglayer.DataInputPort.InternalDataMessage
 import edu.uci.ics.amber.engine.common.ambermessage.neo.DataEvent
 import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
 
@@ -12,7 +12,7 @@ import scala.collection.mutable
   * The internal logic can send data messages to other actor without knowing
   * where the actor is and without determining the sequence number.
   */
-class DataOutputChannel(amberID: Identifier, networkOutput: NetworkOutputGate) {
+class DataOutputPort(amberID: Identifier, networkOutput: NetworkOutputGate) {
 
   private val dataMessageSeqMap = new mutable.AnyRefMap[Identifier, AtomicLong]()
 

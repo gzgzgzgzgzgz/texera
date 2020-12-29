@@ -6,13 +6,9 @@ import akka.util.Timeout
 import com.softwaremill.macwire.wire
 import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
 import edu.uci.ics.amber.engine.architecture.common.WorkflowActor
-import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputChannel.InternalControlMessage
+import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.InternalControlMessage
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate.NetworkMessage
-import edu.uci.ics.amber.engine.architecture.messaginglayer.{
-  BatchProducer,
-  DataInputChannel,
-  DataOutputChannel
-}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.{BatchProducer, DataInputPort, DataOutputPort, TupleProducer}
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.DummyInput
 import edu.uci.ics.amber.engine.architecture.worker.neo._
 import edu.uci.ics.amber.engine.common.IOperatorExecutor
@@ -38,9 +34,10 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
 
   lazy val pauseManager: PauseManager = wire[PauseManager]
   lazy val dataProcessor: DataProcessor = wire[DataProcessor]
-  lazy val dataInputChannel: DataInputChannel = wire[DataInputChannel]
-  lazy val dataOutputChannel: DataOutputChannel = wire[DataOutputChannel]
+  lazy val dataInputChannel: DataInputPort = wire[DataInputPort]
+  lazy val dataOutputChannel: DataOutputPort = wire[DataOutputPort]
   lazy val batchProducer: BatchProducer = wire[BatchProducer]
+  lazy val tupleProducer: TupleProducer = wire[TupleProducer]
 
   val receivedFaultedTupleIds: mutable.HashSet[Long] = new mutable.HashSet[Long]()
   val receivedRecoveryInformation: mutable.HashSet[(Long, Long)] =

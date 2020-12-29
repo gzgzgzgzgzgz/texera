@@ -3,8 +3,8 @@ package edu.uci.ics.amber.engine.architecture.common
 import akka.actor.{Actor, ActorLogging, Stash}
 import com.softwaremill.macwire.wire
 import edu.uci.ics.amber.engine.architecture.messaginglayer.{
-  ControlInputChannel,
-  ControlOutputChannel,
+  ControlInputPort,
+  ControlOutputPort,
   NetworkOutputGate
 }
 import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
@@ -16,8 +16,8 @@ class WorkflowActor(identifier: Identifier)
     with NetworkOutputGate {
 
   val networkOutput: NetworkOutputGate = this
-  lazy val controlInputChannel: ControlInputChannel = wire[ControlInputChannel]
-  lazy val controlOutputChannel: ControlOutputChannel = wire[ControlOutputChannel]
+  lazy val controlInputChannel: ControlInputPort = wire[ControlInputPort]
+  lazy val controlOutputChannel: ControlOutputPort = wire[ControlOutputPort]
 
   // Not being used right now.
   override def receive: Receive = {

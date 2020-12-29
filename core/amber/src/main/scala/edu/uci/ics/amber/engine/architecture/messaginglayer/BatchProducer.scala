@@ -15,9 +15,9 @@ import scala.util.control.Breaks
   * @param controlOutputChannel
   */
 class BatchProducer(
-    amberID: Identifier,
-    dataOutputChannel: DataOutputChannel,
-    controlOutputChannel: ControlOutputChannel
+                     amberID: Identifier,
+                     dataOutputChannel: DataOutputPort,
+                     controlOutputChannel: ControlOutputPort
 ) {
   private var policies = new Array[DataTransferPolicy](0)
 

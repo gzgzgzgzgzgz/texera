@@ -1,12 +1,12 @@
 package edu.uci.ics.amber.engine.architecture.messaginglayer
 
-import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputChannel.InternalControlMessage
+import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.InternalControlMessage
 import edu.uci.ics.amber.engine.common.ambermessage.neo.{ControlEvent, InternalMessage}
 import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
 
 import scala.collection.mutable
 
-object ControlInputChannel {
+object ControlInputPort {
   final case class InternalControlMessage(
       from: Identifier,
       sequenceNumber: Long,
@@ -14,7 +14,7 @@ object ControlInputChannel {
   ) extends InternalMessage
 }
 
-class ControlInputChannel {
+class ControlInputPort {
   private val controlOrderingEnforcer =
     new mutable.AnyRefMap[Identifier, OrderingEnforcer[ControlEvent]]()
 

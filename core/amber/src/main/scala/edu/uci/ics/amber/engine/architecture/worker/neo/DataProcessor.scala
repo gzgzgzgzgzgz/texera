@@ -3,7 +3,7 @@ package edu.uci.ics.amber.engine.architecture.worker.neo
 import java.util.concurrent.Executors
 
 import edu.uci.ics.amber.engine.architecture.breakpoint.localbreakpoint.ExceptionBreakpoint
-import edu.uci.ics.amber.engine.architecture.messaginglayer.{BatchProducer, ControlOutputChannel}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.{BatchProducer, ControlOutputPort}
 import edu.uci.ics.amber.engine.architecture.worker.BreakpointSupport
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue._
 import edu.uci.ics.amber.engine.common.amberexception.BreakpointException
@@ -14,10 +14,10 @@ import edu.uci.ics.amber.engine.common.tuple.ITuple
 import edu.uci.ics.amber.engine.common.{IOperatorExecutor, InputExhausted}
 
 class DataProcessor( // dependencies:
-    operator: IOperatorExecutor, // core logic
-    controlOutputChannel: ControlOutputChannel, // to send controls to main thread
-    batchProducer: BatchProducer, // to send output tuples
-    pauseManager: PauseManager // to pause/resume
+                     operator: IOperatorExecutor, // core logic
+                     controlOutputChannel: ControlOutputPort, // to send controls to main thread
+                     batchProducer: BatchProducer, // to send output tuples
+                     pauseManager: PauseManager // to pause/resume
 ) extends BreakpointSupport
     with WorkerInternalQueue { // TODO: make breakpointSupport as a module
 
