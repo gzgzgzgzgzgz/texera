@@ -1,22 +1,9 @@
 package edu.uci.ics.amber.engine.architecture.controller
 
 import edu.uci.ics.amber.clustering.SingleNodeListener
-import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.{
-  ConditionalGlobalBreakpoint,
-  CountGlobalBreakpoint
-}
-import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{
-  Ack,
-  ModifyLogic,
-  Pause,
-  Resume,
-  Start
-}
-import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage.{
-  AckedControllerInitialization,
-  PassBreakpointTo,
-  ReportState
-}
+import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.{ConditionalGlobalBreakpoint, CountGlobalBreakpoint}
+import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{Ack, ModifyLogic, Pause, Resume, Start}
+import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage.{AckedControllerInitialization, PassBreakpointTo, ReportState}
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.DataPayload
 import edu.uci.ics.amber.engine.common.ambertag.OperatorIdentifier
 import edu.uci.ics.amber.engine.common.tuple.ITuple
@@ -24,7 +11,8 @@ import edu.uci.ics.amber.engine.common.Constants
 import akka.actor.{ActorSystem, PoisonPill, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
 
 import scala.concurrent.{Await, ExecutionContextExecutor}
 import scala.concurrent.duration._
@@ -33,7 +21,7 @@ import scala.util.Random
 class ControllerSpec
     extends TestKit(ActorSystem("ControllerSpec"))
     with ImplicitSender
-    with FlatSpecLike
+    with AnyFlatSpecLike
     with BeforeAndAfterAll {
 
   implicit val timeout: Timeout = Timeout(5.seconds)

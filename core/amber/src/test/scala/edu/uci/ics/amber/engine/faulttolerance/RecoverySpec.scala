@@ -1,21 +1,9 @@
 package edu.uci.ics.amber.engine.faulttolerance
 
 import edu.uci.ics.amber.clustering.SingleNodeListener
-import edu.uci.ics.amber.engine.architecture.controller.{
-  Controller,
-  ControllerEventListener,
-  ControllerState
-}
-import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{
-  KillAndRecover,
-  Pause,
-  Resume,
-  Start
-}
-import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage.{
-  AckedControllerInitialization,
-  ReportState
-}
+import edu.uci.ics.amber.engine.architecture.controller.{Controller, ControllerEventListener, ControllerState}
+import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{KillAndRecover, Pause, Resume, Start}
+import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage.{AckedControllerInitialization, ReportState}
 import akka.actor.{ActorSystem, PoisonPill, Props}
 import akka.event.LoggingAdapter
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
@@ -25,7 +13,8 @@ import edu.uci.ics.amber.engine.e2e.TestOperators
 import edu.uci.ics.texera.web.model.request.ExecuteWorkflowRequest
 import edu.uci.ics.texera.workflow.common.workflow.{WorkflowCompiler, WorkflowInfo}
 import edu.uci.ics.texera.workflow.common.{Utils, WorkflowContext}
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike}
+import org.scalatest.flatspec.AnyFlatSpecLike
+import org.scalatest.BeforeAndAfterAll
 
 import scala.concurrent.{Await, ExecutionContextExecutor}
 import scala.concurrent.duration._
@@ -33,7 +22,7 @@ import scala.concurrent.duration._
 class RecoverySpec
     extends TestKit(ActorSystem("RecoverySpec"))
     with ImplicitSender
-    with FlatSpecLike
+    with AnyFlatSpecLike
     with BeforeAndAfterAll {
 
   implicit val timeout: Timeout = Timeout(5.seconds)

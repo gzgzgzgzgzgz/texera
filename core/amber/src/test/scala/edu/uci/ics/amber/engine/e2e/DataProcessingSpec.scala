@@ -1,22 +1,9 @@
 package edu.uci.ics.amber.engine.e2e
 
 import edu.uci.ics.amber.clustering.SingleNodeListener
-import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.{
-  ConditionalGlobalBreakpoint,
-  CountGlobalBreakpoint
-}
-import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{
-  Ack,
-  ModifyLogic,
-  Pause,
-  Resume,
-  Start
-}
-import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage.{
-  AckedControllerInitialization,
-  PassBreakpointTo,
-  ReportState
-}
+import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.{ConditionalGlobalBreakpoint, CountGlobalBreakpoint}
+import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{Ack, ModifyLogic, Pause, Resume, Start}
+import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage.{AckedControllerInitialization, PassBreakpointTo, ReportState}
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.DataPayload
 import edu.uci.ics.amber.engine.common.ambertag.{OperatorIdentifier, WorkflowTag}
 import edu.uci.ics.amber.engine.common.tuple.ITuple
@@ -24,25 +11,15 @@ import edu.uci.ics.amber.engine.common.Constants
 import akka.actor.{ActorSystem, PoisonPill, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
-import edu.uci.ics.amber.engine.architecture.controller.{
-  Controller,
-  ControllerEventListener,
-  ControllerState
-}
+import edu.uci.ics.amber.engine.architecture.controller.{Controller, ControllerEventListener, ControllerState}
 import edu.uci.ics.texera.web.model.request.{ExecuteWorkflowRequest, TexeraWebSocketRequest}
 import edu.uci.ics.texera.web.resource.WorkflowWebsocketResource
 import edu.uci.ics.texera.workflow.common.{Utils, WorkflowContext}
 import edu.uci.ics.texera.workflow.common.operators.OperatorDescriptor
-import edu.uci.ics.texera.workflow.common.workflow.{
-  BreakpointInfo,
-  OperatorLink,
-  WorkflowCompiler,
-  WorkflowInfo
-}
+import edu.uci.ics.texera.workflow.common.workflow.{BreakpointInfo, OperatorLink, WorkflowCompiler, WorkflowInfo}
 import edu.uci.ics.texera.workflow.operators.aggregate.AggregationFunction
-import edu.uci.ics.texera.workflow.operators.localscan.LocalCsvFileScanOpDesc
-import edu.uci.ics.texera.workflow.operators.sink.SimpleSinkOpDesc
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpecLike
 
 import scala.collection.mutable
 import scala.concurrent.{Await, ExecutionContextExecutor}
@@ -52,7 +29,7 @@ import scala.util.Random
 class DataProcessingSpec
     extends TestKit(ActorSystem("DataProcessingSpec"))
     with ImplicitSender
-    with FlatSpecLike
+    with AnyFlatSpecLike
     with BeforeAndAfterAll {
 
   implicit val timeout: Timeout = Timeout(5.seconds)
