@@ -1,7 +1,12 @@
 package edu.uci.ics.amber.engine.architecture.messaginglayer
 
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue
-import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.{EndMarker, EndOfAllMarker, InputTuple, SenderChangeMarker}
+import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.{
+  EndMarker,
+  EndOfAllMarker,
+  InputTuple,
+  SenderChangeMarker
+}
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.{DataPayload, EndOfUpstream}
 import edu.uci.ics.amber.engine.common.ambermessage.neo.DataEvent
 import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
@@ -37,13 +42,13 @@ class TupleProducer(workerInternalQueue: WorkerInternalQueue) {
     * @param from
     * @param dataEvents
     */
-  def processDataEvents(from:Identifier, dataEvents: Iterable[DataEvent]): Unit ={
+  def processDataEvents(from: Identifier, dataEvents: Iterable[DataEvent]): Unit = {
     val sender = inputMap(from)
     if (currentSender != sender) {
       workerInternalQueue.appendElement(SenderChangeMarker(sender))
       currentSender = sender
     }
-    dataEvents.foreach{
+    dataEvents.foreach {
       case DataPayload(payload) =>
         payload.foreach { i =>
           workerInternalQueue.appendElement(InputTuple(i))
@@ -61,6 +66,5 @@ class TupleProducer(workerInternalQueue: WorkerInternalQueue) {
         throw new NotImplementedError()
     }
   }
-
 
 }

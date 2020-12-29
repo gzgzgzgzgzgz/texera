@@ -1,14 +1,6 @@
 package edu.uci.ics.amber.engine.architecture.messaginglayer
 
 import edu.uci.ics.amber.engine.architecture.messaginglayer.DataInputPort.InternalDataMessage
-import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue
-import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.{
-  EndMarker,
-  EndOfAllMarker,
-  InputTuple,
-  SenderChangeMarker
-}
-import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.{DataPayload, EndOfUpstream}
 import edu.uci.ics.amber.engine.common.ambermessage.neo.{DataEvent, InternalMessage}
 import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
 
@@ -34,7 +26,7 @@ class DataInputPort(tupleProducer: TupleProducer) {
       msg.command
     ) match {
       case Some(iterable) =>
-        tupleProducer.processDataEvents(msg.from,iterable)
+        tupleProducer.processDataEvents(msg.from, iterable)
       case None =>
       // discard duplicate
     }

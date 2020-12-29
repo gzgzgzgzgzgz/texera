@@ -14,10 +14,10 @@ import edu.uci.ics.amber.engine.common.tuple.ITuple
 import edu.uci.ics.amber.engine.common.{IOperatorExecutor, InputExhausted}
 
 class DataProcessor( // dependencies:
-                     operator: IOperatorExecutor, // core logic
-                     controlOutputChannel: ControlOutputPort, // to send controls to main thread
-                     batchProducer: BatchProducer, // to send output tuples
-                     pauseManager: PauseManager // to pause/resume
+    operator: IOperatorExecutor, // core logic
+    controlOutputChannel: ControlOutputPort, // to send controls to main thread
+    batchProducer: BatchProducer, // to send output tuples
+    pauseManager: PauseManager // to pause/resume
 ) extends BreakpointSupport
     with WorkerInternalQueue { // TODO: make breakpointSupport as a module
 
