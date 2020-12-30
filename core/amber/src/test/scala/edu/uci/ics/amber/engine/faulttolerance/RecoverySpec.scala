@@ -1,9 +1,21 @@
 package edu.uci.ics.amber.engine.faulttolerance
 
 import edu.uci.ics.amber.clustering.SingleNodeListener
-import edu.uci.ics.amber.engine.architecture.controller.{Controller, ControllerEventListener, ControllerState}
-import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{KillAndRecover, Pause, Resume, Start}
-import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage.{AckedControllerInitialization, ReportState}
+import edu.uci.ics.amber.engine.architecture.controller.{
+  Controller,
+  ControllerEventListener,
+  ControllerState
+}
+import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{
+  KillAndRecover,
+  Pause,
+  Resume,
+  Start
+}
+import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage.{
+  AckedControllerInitialization,
+  ReportState
+}
 import akka.actor.{ActorSystem, PoisonPill, Props}
 import akka.event.LoggingAdapter
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}

@@ -2,13 +2,22 @@ package edu.uci.ics.amber.engine.e2e
 
 import edu.uci.ics.amber.clustering.SingleNodeListener
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{Pause, Resume, Start}
-import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage.{AckedControllerInitialization, PassBreakpointTo, ReportState}
+import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage.{
+  AckedControllerInitialization,
+  PassBreakpointTo,
+  ReportState
+}
 import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.Timeout
 import edu.uci.ics.amber.engine.architecture.controller.ControllerState
 import edu.uci.ics.texera.workflow.common.operators.OperatorDescriptor
-import edu.uci.ics.texera.workflow.common.workflow.{BreakpointInfo, OperatorLink, WorkflowCompiler, WorkflowInfo}
+import edu.uci.ics.texera.workflow.common.workflow.{
+  BreakpointInfo,
+  OperatorLink,
+  WorkflowCompiler,
+  WorkflowInfo
+}
 import org.scalatest.BeforeAndAfterAll
 
 import scala.collection.mutable
