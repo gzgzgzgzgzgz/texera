@@ -7,13 +7,13 @@ import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.{
   InputTuple,
   SenderChangeMarker
 }
-import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.{DataPayload, EndOfUpstream}
-import edu.uci.ics.amber.engine.common.ambermessage.neo.DataEvent
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
+import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.{DataFrame, EndOfUpstream}
+import edu.uci.ics.amber.engine.common.ambermessage.neo.DataPayload
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
 
 import scala.collection.mutable
 
-class TupleProducer(workerInternalQueue: WorkerInternalQueue) {
+class BatchToTupleConverter(workerInternalQueue: WorkerInternalQueue) {
 
   /**
     * Map from Identifier to input number. Used to convert the Identifier
@@ -21,12 +21,12 @@ class TupleProducer(workerInternalQueue: WorkerInternalQueue) {
     * We also keep track of the upstream actors so that we can emit
     * EndOfAllMarker when all upstream actors complete their job
     */
-  private val inputMap = new mutable.HashMap[Identifier, Int]
-  private val upstreamMap = new mutable.HashMap[Int, mutable.HashSet[Identifier]]
+  private val inputMap = new mutable.HashMap[VirtualIdentity, Int]
+  private val upstreamMap = new mutable.HashMap[Int, mutable.HashSet[VirtualIdentity]]
   private var currentSender = -1
 
-  def registerInput(identifier: Identifier, input: Int): Unit = {
-    upstreamMap.getOrElseUpdate(input, new mutable.HashSet[Identifier]()).add(identifier)
+  def registerInput(identifier: VirtualIdentity, input: Int): Unit = {
+    upstreamMap.getOrElseUpdate(input, new mutable.HashSet[VirtualIdentity]()).add(identifier)
     inputMap(identifier) = input
   }
 
@@ -40,16 +40,16 @@ class TupleProducer(workerInternalQueue: WorkerInternalQueue) {
     *    when ALL upstreams exhausts.
     *
     * @param from
-    * @param dataEvents
+    * @param dataPayloads
     */
-  def processDataEvents(from: Identifier, dataEvents: Iterable[DataEvent]): Unit = {
+  def processDataEvents(from: VirtualIdentity, dataPayloads: Iterable[DataPayload]): Unit = {
     val sender = inputMap(from)
     if (currentSender != sender) {
       workerInternalQueue.appendElement(SenderChangeMarker(sender))
       currentSender = sender
     }
-    dataEvents.foreach {
-      case DataPayload(payload) =>
+    dataPayloads.foreach {
+      case DataFrame(payload) =>
         payload.foreach { i =>
           workerInternalQueue.appendElement(InputTuple(i))
         }

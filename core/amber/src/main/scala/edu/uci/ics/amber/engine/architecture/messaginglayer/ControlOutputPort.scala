@@ -2,9 +2,9 @@ package edu.uci.ics.amber.engine.architecture.messaginglayer
 
 import java.util.concurrent.atomic.AtomicLong
 
-import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.InternalControlMessage
-import edu.uci.ics.amber.engine.common.ambermessage.neo.ControlEvent
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
+import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.WorkflowControlMessage
+import edu.uci.ics.amber.engine.common.ambermessage.neo.ControlPayload
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 
 import scala.collection.mutable
 
@@ -12,15 +12,12 @@ import scala.collection.mutable
   * The internal logic can send control messages to other actor without knowing
   * where the actor is and without determining the sequence number.
   */
-class ControlOutputPort(amberID: Identifier, networkOutput: NetworkOutputGate) {
-  private val controlMessageSeqMap = new mutable.AnyRefMap[Identifier, AtomicLong]()
+class ControlOutputPort(selfID: ActorVirtualIdentity, networkOutput: NetworkOutputGate) {
+  private val idToSequenceNums = new mutable.AnyRefMap[ActorVirtualIdentity, AtomicLong]()
 
-  def sendTo(to: Identifier, event: ControlEvent): Unit = {
-    if (to == Identifier.None) {
-      return
-    }
-    val seqNum = controlMessageSeqMap.getOrElseUpdate(to, new AtomicLong()).getAndIncrement()
-    val msg = InternalControlMessage(amberID, seqNum, event)
+  def sendTo(to: ActorVirtualIdentity, event: ControlPayload): Unit = {
+    val seqNum = idToSequenceNums.getOrElseUpdate(to, new AtomicLong()).getAndIncrement()
+    val msg = WorkflowControlMessage(selfID, seqNum, event)
     networkOutput.forwardMessage(to, msg)
   }
 

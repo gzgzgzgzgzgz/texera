@@ -8,8 +8,11 @@ import edu.uci.ics.amber.engine.common.ISourceOperatorExecutor
 import edu.uci.ics.amber.engine.operators.OpExecConfig
 import akka.actor.{ActorContext, ActorRef, Address, Deploy}
 import akka.remote.RemoteScope
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier.ActorIdentifier
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.{
+  ActorVirtualIdentity,
+  NamedActorVirtualIdentity
+}
 
 import scala.collection.mutable
 
@@ -36,7 +39,7 @@ class GeneratorWorkerLayer(
   ): Unit = {
     deployStrategy.initialize(deploymentFilter.filter(prev, all, context.self.path.address))
     layer = new Array[ActorRef](numWorkers)
-    identifiers = new Array[Identifier](numWorkers)
+    identifiers = new Array[ActorVirtualIdentity](numWorkers)
     var idx = 0
     for (i <- 0 until numWorkers) {
       try {
@@ -50,7 +53,7 @@ class GeneratorWorkerLayer(
         }
         layer(i) =
           context.actorOf(Generator.props(m, workerTag).withDeploy(Deploy(scope = RemoteScope(d))))
-        identifiers(i) = ActorIdentifier(workerTag.getGlobalIdentity)
+        identifiers(i) = NamedActorVirtualIdentity(workerTag.getGlobalIdentity)
         idx += 1
       } catch {
         case e: Exception => println(e)

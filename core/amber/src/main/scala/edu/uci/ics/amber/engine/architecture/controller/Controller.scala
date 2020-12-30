@@ -367,7 +367,7 @@ class Controller(
   }
 
   override def receive: Receive = {
-    findActorRefAutomatically orElse [Any, Unit] {
+    findActorRefFromVirtualIdentity orElse [Any, Unit] {
       case QueryStatistics =>
       // do nothing, not initialized yet
       case PrincipalMessage.ReportStatistics(statistics) =>
@@ -617,7 +617,7 @@ class Controller(
   }
 
   private[this] def ready: Receive = {
-    findActorRefAutomatically orElse [Any, Unit] {
+    findActorRefFromVirtualIdentity orElse [Any, Unit] {
       case QueryStatistics =>
         this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
       case PrincipalMessage.ReportStatistics(statistics) =>
@@ -680,7 +680,7 @@ class Controller(
   }
 
   private[this] def running: Receive = {
-    findActorRefAutomatically orElse [Any, Unit] {
+    findActorRefFromVirtualIdentity orElse [Any, Unit] {
       case KillAndRecover =>
         killAndRecoverStage()
       case QueryStatistics =>
@@ -791,7 +791,7 @@ class Controller(
   }
 
   private[this] def pausing: Receive = {
-    findActorRefAutomatically orElse [Any, Unit] {
+    findActorRefFromVirtualIdentity orElse [Any, Unit] {
       case QueryStatistics =>
         this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
       case PrincipalMessage.ReportStatistics(statistics) =>
@@ -860,7 +860,7 @@ class Controller(
   }
 
   private[this] def paused: Receive = {
-    findActorRefAutomatically orElse [Any, Unit] {
+    findActorRefFromVirtualIdentity orElse [Any, Unit] {
       case KillAndRecover =>
         killAndRecoverStage()
       case QueryStatistics =>
@@ -929,7 +929,7 @@ class Controller(
   }
 
   private[this] def resuming: Receive = {
-    findActorRefAutomatically orElse [Any, Unit] {
+    findActorRefFromVirtualIdentity orElse [Any, Unit] {
       case QueryStatistics =>
         this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
       case PrincipalMessage.ReportStatistics(statistics) =>
@@ -976,7 +976,7 @@ class Controller(
   }
 
   private[this] def completed: Receive = {
-    findActorRefAutomatically orElse [Any, Unit] {
+    findActorRefFromVirtualIdentity orElse [Any, Unit] {
       case QueryStatistics =>
         this.principalBiMap.values().forEach(principal => principal ! QueryStatistics)
         this.exitIfCompleted

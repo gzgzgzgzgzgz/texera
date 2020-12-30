@@ -7,17 +7,18 @@ import edu.uci.ics.amber.engine.architecture.messaginglayer.{
   ControlOutputPort,
   NetworkOutputGate
 }
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 
-class WorkflowActor(identifier: Identifier)
+class WorkflowActor(identifier: ActorVirtualIdentity)
     extends Actor
     with ActorLogging
     with Stash
     with NetworkOutputGate {
 
   val networkOutput: NetworkOutputGate = this
-  lazy val controlInputChannel: ControlInputPort = wire[ControlInputPort]
-  lazy val controlOutputChannel: ControlOutputPort = wire[ControlOutputPort]
+  lazy val controlInputPort: ControlInputPort = wire[ControlInputPort]
+  lazy val controlOutputPort: ControlOutputPort = wire[ControlOutputPort]
 
   // Not being used right now.
   override def receive: Receive = {

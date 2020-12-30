@@ -6,13 +6,13 @@ import akka.util.Timeout
 import com.softwaremill.macwire.wire
 import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
 import edu.uci.ics.amber.engine.architecture.common.WorkflowActor
-import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.InternalControlMessage
+import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.WorkflowControlMessage
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate.NetworkMessage
 import edu.uci.ics.amber.engine.architecture.messaginglayer.{
-  BatchProducer,
+  TupleToBatchConverter,
   DataInputPort,
   DataOutputPort,
-  TupleProducer
+  BatchToTupleConverter
 }
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.DummyInput
 import edu.uci.ics.amber.engine.architecture.worker.neo._
@@ -21,7 +21,8 @@ import edu.uci.ics.amber.engine.common.amberexception.AmberException
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage._
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage._
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 import edu.uci.ics.amber.engine.common.tuple.ITuple
 
 import scala.annotation.elidable
@@ -30,7 +31,7 @@ import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
-abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifier) {
+abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActor(identifier) {
   implicit val ec: ExecutionContext = context.dispatcher
   implicit val timeout: Timeout = 5.seconds
   implicit val logAdapter: LoggingAdapter = log
@@ -39,10 +40,10 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
 
   lazy val pauseManager: PauseManager = wire[PauseManager]
   lazy val dataProcessor: DataProcessor = wire[DataProcessor]
-  lazy val dataInputChannel: DataInputPort = wire[DataInputPort]
-  lazy val dataOutputChannel: DataOutputPort = wire[DataOutputPort]
-  lazy val batchProducer: BatchProducer = wire[BatchProducer]
-  lazy val tupleProducer: TupleProducer = wire[TupleProducer]
+  lazy val dataInputPort: DataInputPort = wire[DataInputPort]
+  lazy val dataOutputPort: DataOutputPort = wire[DataOutputPort]
+  lazy val batchProducer: TupleToBatchConverter = wire[TupleToBatchConverter]
+  lazy val tupleProducer: BatchToTupleConverter = wire[BatchToTupleConverter]
 
   val receivedFaultedTupleIds: mutable.HashSet[Long] = new mutable.HashSet[Long]()
   val receivedRecoveryInformation: mutable.HashSet[(Long, Long)] =
@@ -230,7 +231,7 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
   }
 
   override def receive: Receive = {
-    findActorRefAutomatically orElse
+    findActorRefFromVirtualIdentity orElse
       processNewControlMessages orElse [Any, Unit] {
       case AckedWorkerInitialization(recoveryInformation) =>
         onInitialization(recoveryInformation)
@@ -248,7 +249,7 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
   }
 
   def ready: Receive =
-    findActorRefAutomatically orElse
+    findActorRefFromVirtualIdentity orElse
       allowStashOrReleaseOutput orElse
       processNewControlMessages orElse
       allowUpdateOutputLinking orElse //update linking
@@ -272,7 +273,7 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse discardOthers
 
   def pausedBeforeStart: Receive =
-    findActorRefAutomatically orElse
+    findActorRefFromVirtualIdentity orElse
       allowReset orElse allowStashOrReleaseOutput orElse
       processNewControlMessages orElse
       allowUpdateOutputLinking orElse
@@ -300,7 +301,7 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse discardOthers
 
   def paused: Receive =
-    findActorRefAutomatically orElse
+    findActorRefFromVirtualIdentity orElse
       allowReset orElse
       allowStashOrReleaseOutput orElse
       processNewControlMessages orElse
@@ -357,7 +358,7 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse discardOthers
 
   def running: Receive =
-    findActorRefAutomatically orElse
+    findActorRefFromVirtualIdentity orElse
       processNewControlMessages orElse [Any, Unit] {
       case ReportFailure(e) =>
         log.info(s"received failure message")
@@ -392,7 +393,7 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse discardOthers
 
   def breakpointTriggered: Receive =
-    findActorRefAutomatically orElse
+    findActorRefFromVirtualIdentity orElse
       allowStashOrReleaseOutput orElse
       processNewControlMessages orElse
       allowUpdateOutputLinking orElse
@@ -425,13 +426,12 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
             getOutputRowCount()
           )
         )
-      case DataPayload(_) | EndSending(_) => stash()
-      case Resume | Pause                 => context.parent ! ReportState(WorkerState.LocalBreakpointTriggered)
-      case LocalBreakpointTriggered       => //discard this
+      case Resume | Pause           => context.parent ! ReportState(WorkerState.LocalBreakpointTriggered)
+      case LocalBreakpointTriggered => //discard this
     } orElse stashOthers
 
   def completed: Receive =
-    findActorRefAutomatically orElse
+    findActorRefFromVirtualIdentity orElse
       allowReset orElse allowStashOrReleaseOutput orElse
       disallowUpdateOutputLinking orElse
       processNewControlMessages orElse
@@ -472,9 +472,9 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
   }
 
   def processNewControlMessages: Receive = {
-    case msg @ NetworkMessage(_, cmd: InternalControlMessage) =>
-      controlInputChannel.handleControlMessage(cmd)
-      newControlMessageHandler(cmd.command)
+    case msg @ NetworkMessage(_, cmd: WorkflowControlMessage) =>
+      controlInputPort.handleControlMessage(cmd)
+      newControlMessageHandler(cmd.payload)
   }
 
 }

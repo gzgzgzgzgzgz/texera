@@ -2,22 +2,23 @@ package edu.uci.ics.amber.engine.architecture.messaginglayer
 
 import edu.uci.ics.amber.engine.architecture.sendsemantics.datatransferpolicy.DataTransferPolicy
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.UpdateInputLinking
-import edu.uci.ics.amber.engine.common.ambermessage.neo.DataEvent
+import edu.uci.ics.amber.engine.common.ambermessage.neo.DataPayload
 import edu.uci.ics.amber.engine.common.ambertag.LinkTag
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 import edu.uci.ics.amber.engine.common.tuple.ITuple
 
 import scala.util.control.Breaks
 
 /** This class is a container of all the transfer policies.
-  * @param amberID
-  * @param dataOutputChannel
-  * @param controlOutputChannel
+  * @param selfID
+  * @param dataOutputPort
+  * @param controlOutputPort
   */
-class BatchProducer(
-    amberID: Identifier,
-    dataOutputChannel: DataOutputPort,
-    controlOutputChannel: ControlOutputPort
+class TupleToBatchConverter(
+    selfID: ActorVirtualIdentity,
+    dataOutputPort: DataOutputPort,
+    controlOutputPort: ControlOutputPort
 ) {
   private var policies = new Array[DataTransferPolicy](0)
 
@@ -29,11 +30,11 @@ class BatchProducer(
   def addPolicy(
       policy: DataTransferPolicy,
       linkTag: LinkTag,
-      receivers: Array[Identifier]
+      receivers: Array[ActorVirtualIdentity]
   ): Unit = {
     var i = 0
     receivers.foreach { x =>
-      controlOutputChannel.sendTo(x, UpdateInputLinking(amberID, linkTag.inputNum))
+      controlOutputPort.sendTo(x, UpdateInputLinking(selfID, linkTag.inputNum))
     }
     policy.initialize(linkTag, receivers)
     Breaks.breakable {
@@ -55,12 +56,12 @@ class BatchProducer(
   def passTupleToDownstream(tuple: ITuple): Unit = {
     var i = 0
     while (i < policies.length) {
-      val receiverAndBatch: Option[(Identifier, DataEvent)] =
+      val receiverAndBatch: Option[(ActorVirtualIdentity, DataPayload)] =
         policies(i).addTupleToBatch(tuple)
       receiverAndBatch match {
         case Some((id, batch)) =>
           // send it to messaging layer to be sent downstream
-          dataOutputChannel.sendTo(id, batch)
+          dataOutputPort.sendTo(id, batch)
         case None =>
         // Do nothing
       }
@@ -74,12 +75,12 @@ class BatchProducer(
   }
 
   /* Send the last batch and EOU marker to all down streams */
-  def emitEndMarker(): Unit = {
+  def emitEndOfUpstream(): Unit = {
     var i = 0
     while (i < policies.length) {
-      val receiversAndBatches: Array[(Identifier, DataEvent)] = policies(i).noMore()
+      val receiversAndBatches: Array[(ActorVirtualIdentity, DataPayload)] = policies(i).noMore()
       receiversAndBatches.foreach {
-        case (id, batch) => dataOutputChannel.sendTo(id, batch)
+        case (id, batch) => dataOutputPort.sendTo(id, batch)
       }
       i += 1
     }

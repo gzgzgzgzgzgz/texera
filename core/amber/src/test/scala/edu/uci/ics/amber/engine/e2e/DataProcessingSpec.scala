@@ -17,7 +17,6 @@ import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage.{
   PassBreakpointTo,
   ReportState
 }
-import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.DataPayload
 import edu.uci.ics.amber.engine.common.ambertag.{OperatorIdentifier, WorkflowTag}
 import edu.uci.ics.amber.engine.common.tuple.ITuple
 import edu.uci.ics.amber.engine.common.Constants

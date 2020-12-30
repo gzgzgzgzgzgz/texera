@@ -10,7 +10,10 @@ import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.{
 }
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage._
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage._
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier.ActorIdentifier
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.{
+  ActorVirtualIdentity,
+  NamedActorVirtualIdentity
+}
 import edu.uci.ics.amber.engine.common.ambertag.{LayerTag, WorkerTag}
 import edu.uci.ics.amber.engine.common.{
   ElidableStatement,
@@ -28,7 +31,7 @@ object Generator {
 }
 
 class Generator(var operator: IOperatorExecutor, val tag: WorkerTag)
-    extends WorkerBase(ActorIdentifier(tag.getGlobalIdentity))
+    extends WorkerBase(NamedActorVirtualIdentity(tag.getGlobalIdentity))
     with ActorLogging
     with Stash {
 
