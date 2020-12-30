@@ -13,13 +13,13 @@ import scala.collection.mutable
   * The internal logic can send data messages to other actor without knowing
   * where the actor is and without determining the sequence number.
   */
-class DataOutputPort(amberID: ActorVirtualIdentity, networkOutput: NetworkOutputGate) {
+class DataOutputPort(selfID: ActorVirtualIdentity, networkOutput: NetworkOutputGate) {
 
   private val idToSequenceNums = new mutable.AnyRefMap[ActorVirtualIdentity, AtomicLong]()
 
   def sendTo(to: ActorVirtualIdentity, event: DataPayload): Unit = {
     val msg = WorkflowDataMessage(
-      amberID,
+      selfID,
       idToSequenceNums.getOrElseUpdate(to, new AtomicLong()).getAndIncrement(),
       event
     )

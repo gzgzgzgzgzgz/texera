@@ -20,16 +20,16 @@ object NetworkOutputGate {
   final case class ReplyActorRef(id: ActorVirtualIdentity, ref: ActorRef)
 
   /** All outgoing message should be eventually NetworkMessage
-    * @param uuid
+    * @param messageID
     * @param internalMessage
     */
-  final case class NetworkMessage(uuid: Long, internalMessage: WorkflowMessage)
+  final case class NetworkMessage(messageID: Long, internalMessage: WorkflowMessage)
 
   /** Ack for NetworkMessage
     * note that it should NEVER be handled by the main thread
-    * @param uuid
+    * @param messageID
     */
-  final case class NetworkAck(uuid: Long)
+  final case class NetworkAck(messageID: Long)
 }
 
 /** This trait handles the transformation from identifier to actorRef
