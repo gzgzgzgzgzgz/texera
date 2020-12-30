@@ -376,7 +376,7 @@ class Controller(
   }
 
   override def receive: Receive = {
-    findActorRefFromVirtualIdentity orElse[Any, Unit] {
+    findActorRefFromVirtualIdentity orElse [Any, Unit] {
       case LogErrorToFrontEnd(err: WorkflowRuntimeError) =>
         log.error(err.convertToMap().mkString(" | "))
         eventListener.workflowExecutionErrorListener.apply(ErrorOccurred(err))
@@ -410,7 +410,7 @@ class Controller(
                 y match {
                   case AckWithInformation(z) =>
                     workflow.operators(x) = z.asInstanceOf[OpExecConfig]
-                    val layers = workflow.operators(k).topology.layers
+                    val layers = workflow.operators(x).topology.layers
                     layers.foreach { layer =>
                       layer.identifiers.indices.foreach(i =>
                         registerActorRef(layer.identifiers(i), layer.layer(i))
@@ -477,7 +477,7 @@ class Controller(
               y match {
                 case AckWithInformation(z) =>
                   workflow.operators(x) = z.asInstanceOf[OpExecConfig]
-                  val layers = workflow.operators(k).topology.layers
+                  val layers = workflow.operators(x).topology.layers
                   layers.foreach { layer =>
                     layer.identifiers.indices.foreach(i =>
                       registerActorRef(layer.identifiers(i), layer.layer(i))
@@ -652,7 +652,7 @@ class Controller(
   }
 
   private[this] def ready: Receive = {
-    findActorRefFromVirtualIdentity orElse[Any, Unit] {
+    findActorRefFromVirtualIdentity orElse [Any, Unit] {
       case LogErrorToFrontEnd(err: WorkflowRuntimeError) =>
         log.error(err.convertToMap().mkString(" | "))
         eventListener.workflowExecutionErrorListener.apply(ErrorOccurred(err))
@@ -724,7 +724,7 @@ class Controller(
   }
 
   private[this] def running: Receive = {
-    findActorRefFromVirtualIdentity orElse[Any, Unit] {
+    findActorRefFromVirtualIdentity orElse [Any, Unit] {
       case LogErrorToFrontEnd(err: WorkflowRuntimeError) =>
         log.error(err.convertToMap().mkString(" | "))
         eventListener.workflowExecutionErrorListener.apply(ErrorOccurred(err))
@@ -833,12 +833,12 @@ class Controller(
           }
         }
       case Resume =>
-      case msg => stash()
+      case msg    => stash()
     }
   }
 
   private[this] def pausing: Receive = {
-    findActorRefFromVirtualIdentity orElse[Any, Unit] {
+    findActorRefFromVirtualIdentity orElse [Any, Unit] {
       case LogErrorToFrontEnd(err: WorkflowRuntimeError) =>
         log.error(err.convertToMap().mkString(" | "))
         eventListener.workflowExecutionErrorListener.apply(ErrorOccurred(err))
@@ -910,7 +910,7 @@ class Controller(
   }
 
   private[this] def paused: Receive = {
-    findActorRefFromVirtualIdentity orElse[Any, Unit] {
+    findActorRefFromVirtualIdentity orElse [Any, Unit] {
       case LogErrorToFrontEnd(err: WorkflowRuntimeError) =>
         log.error(err.convertToMap().mkString(" | "))
         eventListener.workflowExecutionErrorListener.apply(ErrorOccurred(err))
@@ -931,8 +931,8 @@ class Controller(
         context.parent ! ReportState(ControllerState.Resuming)
         context.become(resuming)
         unstashAll()
-      case Pause =>
-      case EnforceStateCheck =>
+      case Pause                    =>
+      case EnforceStateCheck        =>
       case ModifyLogic(newMetadata) =>
         // newLogic is now an OperatorMetadata
         val principal: ActorRef = principalBiMap.get(newMetadata.tag)
@@ -979,7 +979,7 @@ class Controller(
   }
 
   private[this] def resuming: Receive = {
-    findActorRefFromVirtualIdentity orElse[Any, Unit] {
+    findActorRefFromVirtualIdentity orElse [Any, Unit] {
       case LogErrorToFrontEnd(err: WorkflowRuntimeError) =>
         log.error(err.convertToMap().mkString(" | "))
         eventListener.workflowExecutionErrorListener.apply(ErrorOccurred(err))
@@ -1029,7 +1029,7 @@ class Controller(
   }
 
   private[this] def completed: Receive = {
-    findActorRefFromVirtualIdentity orElse[Any, Unit] {
+    findActorRefFromVirtualIdentity orElse [Any, Unit] {
       case LogErrorToFrontEnd(err: WorkflowRuntimeError) =>
         log.error(err.convertToMap().mkString(" | "))
         eventListener.workflowExecutionErrorListener.apply(ErrorOccurred(err))
