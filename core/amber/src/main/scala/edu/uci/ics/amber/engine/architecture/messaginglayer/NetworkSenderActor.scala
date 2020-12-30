@@ -1,23 +1,32 @@
 package edu.uci.ics.amber.engine.architecture.messaginglayer
 
-import akka.actor.{Actor, ActorRef}
-import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate.{
-  NetworkMessage,
-  QueryActorRef,
-  ReplyActorRef
-}
+import akka.actor.{Actor, ActorRef, Props, Stash}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.{NetworkMessage, QueryActorRef, RegisterActorRef, SendRequest}
 import edu.uci.ics.amber.engine.common.ambermessage.neo.WorkflowMessage
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 
 import scala.collection.mutable
 
-object NetworkOutputGate {
+object NetworkSenderActor {
+
+  /** to distinguish between main actor self ref and
+    * network sender actor
+    * TODO: remove this after using Akka Typed APIs
+    * @param ref
+    */
+  case class NetworkSenderActorRef(ref:ActorRef){
+    def !(message: Any)(implicit sender: ActorRef = Actor.noSender): Unit = {
+      ref ! message
+    }
+  }
+
+  final case class SendRequest(id:ActorVirtualIdentity, message:WorkflowMessage)
 
   /** Identifier <-> ActorRef related messages
     */
-  final case class QueryActorRef(id: ActorVirtualIdentity, replyTo: ActorRef)
-  final case class ReplyActorRef(id: ActorVirtualIdentity, ref: ActorRef)
+  final case class QueryActorRef(id: ActorVirtualIdentity, replyTo: Set[ActorRef])
+  final case class RegisterActorRef(id: ActorVirtualIdentity, ref: ActorRef)
 
   /** All outgoing message should be eventually NetworkMessage
     * @param messageID
@@ -30,29 +39,29 @@ object NetworkOutputGate {
     * @param messageID
     */
   final case class NetworkAck(messageID: Long)
+
+  def props(): Props =
+    Props(new NetworkSenderActor())
 }
 
-/** This trait handles the transformation from identifier to actorRef
+/** This actor handles the transformation from identifier to actorRef
   * and also sends message to other actors. This is the most outer part of
   * the messaging layer.
-  * It SHOULD be a trait since it is highly coupled with actors' sending/receiving logic.
-  * TODO: this trait should eventually become another actor, which is the sender actor.
   */
-trait NetworkOutputGate {
-  this: Actor => // it requires the class to be an actor.
+class NetworkSenderActor extends Actor with Stash{
 
-  private val idToActorRefs = mutable.HashMap[ActorVirtualIdentity, ActorRef]()
-  private val messageStash = mutable.HashMap[ActorVirtualIdentity, mutable.Queue[WorkflowMessage]]()
+  val idToActorRefs = mutable.HashMap[ActorVirtualIdentity, ActorRef]()
+  val messageStash = mutable.HashMap[ActorVirtualIdentity, mutable.Queue[WorkflowMessage]]()
 
   /** keeps track of every outgoing message.
     * Each message is identified by this monotonic increasing ID.
     * It's different from the sequence number and it will only
     * be used by the output gate.
     */
-  private var networkMessageID = 0L
+  var networkMessageID = 0L
 
   //add self into idMap
-  idToActorRefs(VirtualIdentity.Self) = self
+  idToActorRefs(VirtualIdentity.Self) = context.parent
 
   /** This method should always be a part of the unified WorkflowActor receiving logic.
     * 1. when an actor wants to know the actorRef of an Identifier, it replies if the mapping
@@ -62,11 +71,13 @@ trait NetworkOutputGate {
   def findActorRefFromVirtualIdentity: Receive = {
     case QueryActorRef(id, replyTo) =>
       if (idToActorRefs.contains(id)) {
-        replyTo ! ReplyActorRef(id, idToActorRefs(id))
+        replyTo.foreach{
+          actor => actor ! RegisterActorRef(id, idToActorRefs(id))
+        }
       } else {
-        context.parent ! QueryActorRef(id, replyTo)
+        context.parent ! QueryActorRef(id, replyTo + self)
       }
-    case ReplyActorRef(id, ref) =>
+    case RegisterActorRef(id, ref) =>
       registerActorRef(id, ref)
   }
 
@@ -75,12 +86,12 @@ trait NetworkOutputGate {
     * forward the message immediately,
     * otherwise stash the message and ask parent for help.
     */
-  def forwardMessage(to: ActorVirtualIdentity, message: WorkflowMessage): Unit = {
+  def forwardMessage(to: ActorVirtualIdentity, msg: WorkflowMessage): Unit = {
     if (idToActorRefs.contains(to)) {
-      forward(idToActorRefs(to), message)
+      forward(idToActorRefs(to), msg)
     } else {
-      messageStash.getOrElseUpdate(to, new mutable.Queue[WorkflowMessage]()).enqueue(message)
-      context.parent ! QueryActorRef(to, self)
+      messageStash.getOrElseUpdate(to, new mutable.Queue[WorkflowMessage]()).enqueue(msg)
+      context.parent ! QueryActorRef(to, Set(self))
     }
   }
 
@@ -108,4 +119,13 @@ trait NetworkOutputGate {
     }
   }
 
+  def sendMessages:Receive = {
+    case SendRequest(id, msg) =>
+      forwardMessage(id, msg)
+  }
+
+
+  override def receive: Receive = {
+    sendMessages orElse findActorRefFromVirtualIdentity
+  }
 }
