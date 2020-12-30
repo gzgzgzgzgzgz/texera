@@ -2,9 +2,10 @@ package edu.uci.ics.amber.engine.architecture.messaginglayer
 
 import java.util.concurrent.atomic.AtomicLong
 
-import edu.uci.ics.amber.engine.architecture.messaginglayer.DataInputPort.InternalDataMessage
-import edu.uci.ics.amber.engine.common.ambermessage.neo.DataEvent
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
+import edu.uci.ics.amber.engine.architecture.messaginglayer.DataInputPort.WorkflowDataMessage
+import edu.uci.ics.amber.engine.common.ambermessage.neo.DataPayload
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 
 import scala.collection.mutable
 
@@ -12,17 +13,14 @@ import scala.collection.mutable
   * The internal logic can send data messages to other actor without knowing
   * where the actor is and without determining the sequence number.
   */
-class DataOutputPort(amberID: Identifier, networkOutput: NetworkOutputGate) {
+class DataOutputPort(selfID: ActorVirtualIdentity, networkOutput: NetworkOutputGate) {
 
-  private val dataMessageSeqMap = new mutable.AnyRefMap[Identifier, AtomicLong]()
+  private val idToSequenceNums = new mutable.AnyRefMap[ActorVirtualIdentity, AtomicLong]()
 
-  def sendTo(to: Identifier, event: DataEvent): Unit = {
-    if (to == Identifier.None) {
-      return
-    }
-    val msg = InternalDataMessage(
-      amberID,
-      dataMessageSeqMap.getOrElseUpdate(to, new AtomicLong()).getAndIncrement(),
+  def sendTo(to: ActorVirtualIdentity, event: DataPayload): Unit = {
+    val msg = WorkflowDataMessage(
+      selfID,
+      idToSequenceNums.getOrElseUpdate(to, new AtomicLong()).getAndIncrement(),
       event
     )
     networkOutput.forwardMessage(to, msg)

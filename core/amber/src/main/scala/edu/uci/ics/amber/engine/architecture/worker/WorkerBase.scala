@@ -6,23 +6,25 @@ import akka.util.Timeout
 import com.softwaremill.macwire.wire
 import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
 import edu.uci.ics.amber.engine.architecture.common.WorkflowActor
-import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.InternalControlMessage
+import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.WorkflowControlMessage
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate.NetworkMessage
 import edu.uci.ics.amber.engine.architecture.messaginglayer.{
-  BatchProducer,
+  TupleToBatchConverter,
   DataInputPort,
   DataOutputPort,
-  TupleProducer
+  BatchToTupleConverter
 }
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.DummyInput
 import edu.uci.ics.amber.engine.architecture.worker.neo._
 import edu.uci.ics.amber.engine.common.IOperatorExecutor
-import edu.uci.ics.amber.engine.common.amberexception.AmberException
+import edu.uci.ics.amber.engine.common.amberexception.WorkflowRuntimeException
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage._
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage._
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 import edu.uci.ics.amber.engine.common.tuple.ITuple
+import edu.uci.ics.amber.error.WorkflowRuntimeError
 
 import scala.annotation.elidable
 import scala.annotation.elidable.INFO
@@ -30,7 +32,7 @@ import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
-abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifier) {
+abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActor(identifier) {
   implicit val ec: ExecutionContext = context.dispatcher
   implicit val timeout: Timeout = 5.seconds
   implicit val logAdapter: LoggingAdapter = log
@@ -39,10 +41,10 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
 
   lazy val pauseManager: PauseManager = wire[PauseManager]
   lazy val dataProcessor: DataProcessor = wire[DataProcessor]
-  lazy val dataInputChannel: DataInputPort = wire[DataInputPort]
-  lazy val dataOutputChannel: DataOutputPort = wire[DataOutputPort]
-  lazy val batchProducer: BatchProducer = wire[BatchProducer]
-  lazy val tupleProducer: TupleProducer = wire[TupleProducer]
+  lazy val dataInputPort: DataInputPort = wire[DataInputPort]
+  lazy val dataOutputPort: DataOutputPort = wire[DataOutputPort]
+  lazy val batchProducer: TupleToBatchConverter = wire[TupleToBatchConverter]
+  lazy val tupleProducer: BatchToTupleConverter = wire[BatchToTupleConverter]
 
   val receivedFaultedTupleIds: mutable.HashSet[Long] = new mutable.HashSet[Long]()
   val receivedRecoveryInformation: mutable.HashSet[(Long, Long)] =
@@ -147,10 +149,22 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
   final def disallowModifyBreakpoints: Receive = {
     case AssignBreakpoint(bp) =>
       sender ! Ack
-      throw new AmberException(s"Assignation of breakpoint ${bp.id} is not allowed at this time")
+      throw new WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          s"Assignation of breakpoint ${bp.id} is not allowed at this time",
+          "WorkerBase:disallowModifyBreakpoints",
+          Map()
+        )
+      )
     case RemoveBreakpoint(id) =>
       sender ! Ack
-      throw new AmberException(s"Removal of breakpoint $id is not allowed at this time")
+      throw new WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          s"Removal of breakpoint $id is not allowed at this time",
+          "WorkerBase:RemoveBreakpoint",
+          Map()
+        )
+      )
   }
 
   final def allowReset: Receive = {
@@ -165,13 +179,25 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
         toReport.get.isReported = true
         context.parent ! ReportedQueriedBreakpoint(toReport.get)
       } else {
-        throw new AmberException(s"breakpoint $id not found when query")
+        throw new WorkflowRuntimeException(
+          WorkflowRuntimeError(
+            s"breakpoint $id not found when query",
+            "WorkerBase:allowQueryBreakpoint",
+            Map()
+          )
+        )
       }
   }
 
   final def disallowQueryBreakpoint: Receive = {
     case QueryBreakpoint(id) =>
-      throw new AmberException(s"query breakpoint $id is not allowed at this time")
+      throw new WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          s"query breakpoint $id is not allowed at this time",
+          "WorkerBase:disallowQueryBreakpoint",
+          Map()
+        )
+      )
   }
 
   final def allowQueryTriggeredBreakpoints: Receive = {
@@ -181,15 +207,25 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
         toReport.foreach(_.isReported = true)
         sender ! ReportedTriggeredBreakpoints(toReport)
       } else {
-        throw new AmberException(
-          "no triggered local breakpoints but worker in triggered breakpoint state"
+        throw new WorkflowRuntimeException(
+          WorkflowRuntimeError(
+            "no triggered local breakpoints but worker in triggered breakpoint state",
+            "WorkerBase:allowQueryTriggeredBreakpoints",
+            Map()
+          )
         )
       }
   }
 
   final def disallowQueryTriggeredBreakpoints: Receive = {
     case QueryTriggeredBreakpoints =>
-      throw new AmberException(s"query triggered breakpoints is not allowed at this time")
+      throw new WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          s"query triggered breakpoints is not allowed at this time",
+          "WorkerBase:disallowQueryTriggeredBreakpoints",
+          Map()
+        )
+      )
   }
 
   final def allowUpdateOutputLinking: Receive = {
@@ -201,8 +237,12 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
   final def disallowUpdateOutputLinking: Receive = {
     case UpdateOutputLinking(policy, tag, receivers) =>
       sender ! Ack
-      throw new AmberException(
-        s"update output link information of $tag is not allowed at this time"
+      throw new WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          s"update output link information of $tag is not allowed at this time",
+          "WorkerBase:disallowUpdateOutputLinking",
+          Map()
+        )
       )
   }
 
@@ -230,7 +270,7 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
   }
 
   override def receive: Receive = {
-    findActorRefAutomatically orElse
+    findActorRefFromVirtualIdentity orElse
       processNewControlMessages orElse [Any, Unit] {
       case AckedWorkerInitialization(recoveryInformation) =>
         onInitialization(recoveryInformation)
@@ -248,7 +288,7 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
   }
 
   def ready: Receive =
-    findActorRefAutomatically orElse
+    findActorRefFromVirtualIdentity orElse
       allowStashOrReleaseOutput orElse
       processNewControlMessages orElse
       allowUpdateOutputLinking orElse //update linking
@@ -272,7 +312,7 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse discardOthers
 
   def pausedBeforeStart: Receive =
-    findActorRefAutomatically orElse
+    findActorRefFromVirtualIdentity orElse
       allowReset orElse allowStashOrReleaseOutput orElse
       processNewControlMessages orElse
       allowUpdateOutputLinking orElse
@@ -300,7 +340,7 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse discardOthers
 
   def paused: Receive =
-    findActorRefAutomatically orElse
+    findActorRefFromVirtualIdentity orElse
       allowReset orElse
       allowStashOrReleaseOutput orElse
       processNewControlMessages orElse
@@ -353,11 +393,17 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
       case CollectSinkResults =>
         sender ! WorkerMessage.ReportOutputResult(this.getResultTuples().toList)
       case LocalBreakpointTriggered =>
-        throw new AmberException("breakpoint triggered after pause")
+        throw new WorkflowRuntimeException(
+          WorkflowRuntimeError(
+            "breakpoint triggered after pause",
+            "WorkerBase:paused:LocalBreakpointTriggered",
+            Map()
+          )
+        )
     } orElse discardOthers
 
   def running: Receive =
-    findActorRefAutomatically orElse
+    findActorRefFromVirtualIdentity orElse
       processNewControlMessages orElse [Any, Unit] {
       case ReportFailure(e) =>
         log.info(s"received failure message")
@@ -392,7 +438,7 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
     } orElse discardOthers
 
   def breakpointTriggered: Receive =
-    findActorRefAutomatically orElse
+    findActorRefFromVirtualIdentity orElse
       allowStashOrReleaseOutput orElse
       processNewControlMessages orElse
       allowUpdateOutputLinking orElse
@@ -425,13 +471,12 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
             getOutputRowCount()
           )
         )
-      case DataPayload(_) | EndSending(_) => stash()
-      case Resume | Pause                 => context.parent ! ReportState(WorkerState.LocalBreakpointTriggered)
-      case LocalBreakpointTriggered       => //discard this
+      case Resume | Pause           => context.parent ! ReportState(WorkerState.LocalBreakpointTriggered)
+      case LocalBreakpointTriggered => //discard this
     } orElse stashOthers
 
   def completed: Receive =
-    findActorRefAutomatically orElse
+    findActorRefFromVirtualIdentity orElse
       allowReset orElse allowStashOrReleaseOutput orElse
       disallowUpdateOutputLinking orElse
       processNewControlMessages orElse
@@ -472,9 +517,9 @@ abstract class WorkerBase(identifier: Identifier) extends WorkflowActor(identifi
   }
 
   def processNewControlMessages: Receive = {
-    case msg @ NetworkMessage(_, cmd: InternalControlMessage) =>
-      controlInputChannel.handleControlMessage(cmd)
-      newControlMessageHandler(cmd.command)
+    case msg @ NetworkMessage(_, cmd: WorkflowControlMessage) =>
+      controlInputPort.handleControlMessage(cmd)
+      newControlMessageHandler(cmd.payload)
   }
 
 }

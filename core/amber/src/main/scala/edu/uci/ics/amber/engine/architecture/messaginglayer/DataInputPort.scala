@@ -1,29 +1,29 @@
 package edu.uci.ics.amber.engine.architecture.messaginglayer
 
-import edu.uci.ics.amber.engine.architecture.messaginglayer.DataInputPort.InternalDataMessage
-import edu.uci.ics.amber.engine.common.ambermessage.neo.{DataEvent, InternalMessage}
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
+import edu.uci.ics.amber.engine.architecture.messaginglayer.DataInputPort.WorkflowDataMessage
+import edu.uci.ics.amber.engine.common.ambermessage.neo.{DataPayload, WorkflowMessage}
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
 
 import scala.collection.mutable
 
 object DataInputPort {
-  final case class InternalDataMessage(
-      from: Identifier,
+  final case class WorkflowDataMessage(
+      from: VirtualIdentity,
       sequenceNumber: Long,
-      command: DataEvent
-  ) extends InternalMessage
+      payload: DataPayload
+  ) extends WorkflowMessage
 }
 
-class DataInputPort(tupleProducer: TupleProducer) {
-  private val dataOrderingEnforcer =
-    new mutable.AnyRefMap[Identifier, OrderingEnforcer[DataEvent]]()
+class DataInputPort(tupleProducer: BatchToTupleConverter) {
+  private val idToOrderingEnforcers =
+    new mutable.AnyRefMap[VirtualIdentity, OrderingEnforcer[DataPayload]]()
 
-  def handleDataMessage(msg: InternalDataMessage): Unit = {
+  def handleDataMessage(msg: WorkflowDataMessage): Unit = {
     OrderingEnforcer.reorderMessage(
-      dataOrderingEnforcer,
+      idToOrderingEnforcers,
       msg.from,
       msg.sequenceNumber,
-      msg.command
+      msg.payload
     ) match {
       case Some(iterable) =>
         tupleProducer.processDataEvents(msg.from, iterable)

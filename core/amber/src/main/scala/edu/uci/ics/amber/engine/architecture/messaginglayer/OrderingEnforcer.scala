@@ -1,25 +1,25 @@
 package edu.uci.ics.amber.engine.architecture.messaginglayer
 
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
 object OrderingEnforcer {
   def reorderMessage[V: ClassTag](
-      seqMap: mutable.AnyRefMap[Identifier, OrderingEnforcer[V]],
-      sender: Identifier,
+      seqMap: mutable.AnyRefMap[VirtualIdentity, OrderingEnforcer[V]],
+      sender: VirtualIdentity,
       seq: Long,
-      command: V
+      payload: V
   ): Option[Iterable[V]] = {
     val entry = seqMap.getOrElseUpdate(sender, new OrderingEnforcer[V]())
     if (entry.isDuplicated(seq)) {
       None
     } else if (entry.isAhead(seq)) {
-      entry.stash(seq, command)
+      entry.stash(seq, payload)
       None
     } else {
-      Some(entry.enforceFIFO(seq, command))
+      Some(entry.enforceFIFO(seq, payload))
     }
   }
 }

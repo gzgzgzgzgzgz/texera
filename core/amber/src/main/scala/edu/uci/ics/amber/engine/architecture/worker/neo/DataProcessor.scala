@@ -3,20 +3,23 @@ package edu.uci.ics.amber.engine.architecture.worker.neo
 import java.util.concurrent.Executors
 
 import edu.uci.ics.amber.engine.architecture.breakpoint.localbreakpoint.ExceptionBreakpoint
-import edu.uci.ics.amber.engine.architecture.messaginglayer.{BatchProducer, ControlOutputPort}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.{
+  TupleToBatchConverter,
+  ControlOutputPort
+}
 import edu.uci.ics.amber.engine.architecture.worker.BreakpointSupport
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue._
 import edu.uci.ics.amber.engine.common.amberexception.BreakpointException
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.LocalBreakpointTriggered
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.ExecutionCompleted
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
 import edu.uci.ics.amber.engine.common.tuple.ITuple
 import edu.uci.ics.amber.engine.common.{IOperatorExecutor, InputExhausted}
 
 class DataProcessor( // dependencies:
     operator: IOperatorExecutor, // core logic
     controlOutputChannel: ControlOutputPort, // to send controls to main thread
-    batchProducer: BatchProducer, // to send output tuples
+    batchProducer: TupleToBatchConverter, // to send output tuples
     pauseManager: PauseManager // to pause/resume
 ) extends BreakpointSupport
     with WorkerInternalQueue { // TODO: make breakpointSupport as a module
@@ -89,7 +92,7 @@ class DataProcessor( // dependencies:
     } catch {
       case bp: BreakpointException =>
         pauseManager.pause()
-        controlOutputChannel.sendTo(Identifier.Self, LocalBreakpointTriggered())
+        controlOutputChannel.sendTo(VirtualIdentity.Self, LocalBreakpointTriggered())
       case e: Exception =>
         handleOperatorException(e, isInput = true)
     }
@@ -119,14 +122,14 @@ class DataProcessor( // dependencies:
         case EndOfAllMarker() =>
           // end of processing, break DP loop
           isCompleted = true
-          batchProducer.emitEndMarker()
+          batchProducer.emitEndOfUpstream()
         case DummyInput() =>
           // do a pause check
           pauseManager.checkForPause()
       }
     }
     // Send Completed signal to worker actor.
-    controlOutputChannel.sendTo(Identifier.Self, ExecutionCompleted())
+    controlOutputChannel.sendTo(VirtualIdentity.Self, ExecutionCompleted())
   }
 
   // For compatibility, we use old breakpoint handling logic
@@ -145,7 +148,7 @@ class DataProcessor( // dependencies:
   private[this] def handleOperatorException(e: Exception, isInput: Boolean): Unit = {
     pauseManager.pause()
     assignExceptionBreakpoint(currentInputTuple.left.getOrElse(null), e, isInput)
-    controlOutputChannel.sendTo(Identifier.Self, LocalBreakpointTriggered())
+    controlOutputChannel.sendTo(VirtualIdentity.Self, LocalBreakpointTriggered())
   }
 
   private[this] def handleInputTuple(): Unit = {

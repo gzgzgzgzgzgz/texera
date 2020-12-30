@@ -2,13 +2,16 @@ package edu.uci.ics.amber.engine.architecture.worker
 
 import akka.actor.Props
 import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
-import edu.uci.ics.amber.engine.architecture.messaginglayer.DataInputPort.InternalDataMessage
+import edu.uci.ics.amber.engine.architecture.messaginglayer.DataInputPort.WorkflowDataMessage
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate.NetworkMessage
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.InputTuple
-import edu.uci.ics.amber.engine.common.amberexception.AmberException
+import edu.uci.ics.amber.engine.common.amberexception.WorkflowRuntimeException
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{QueryState, _}
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage._
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier.ActorIdentifier
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.{
+  ActorVirtualIdentity,
+  NamedActorVirtualIdentity
+}
 import edu.uci.ics.amber.engine.common.ambertag.{LayerTag, WorkerTag}
 import edu.uci.ics.amber.engine.common.tuple.ITuple
 import edu.uci.ics.amber.engine.common.{
@@ -19,6 +22,7 @@ import edu.uci.ics.amber.engine.common.{
 }
 import edu.uci.ics.amber.engine.faulttolerance.recovery.RecoveryPacket
 import edu.uci.ics.amber.engine.operators.OpExecConfig
+import edu.uci.ics.amber.error.WorkflowRuntimeError
 
 import scala.annotation.elidable
 import scala.annotation.elidable._
@@ -30,7 +34,7 @@ object Processor {
 }
 
 class Processor(var operator: IOperatorExecutor, val tag: WorkerTag)
-    extends WorkerBase(ActorIdentifier(tag.getGlobalIdentity)) {
+    extends WorkerBase(NamedActorVirtualIdentity(tag.getGlobalIdentity)) {
   var savedModifyLogic: mutable.Queue[(Long, Long, OpExecConfig)] =
     new mutable.Queue[(Long, Long, OpExecConfig)]()
 
@@ -140,7 +144,7 @@ class Processor(var operator: IOperatorExecutor, val tag: WorkerTag)
   }
 
   final def activateWhenReceiveDataMessages: Receive = {
-    case msg @ NetworkMessage(_, data: InternalDataMessage) =>
+    case msg @ NetworkMessage(_, data: WorkflowDataMessage) =>
       stash()
       onStart()
       context.become(running)
@@ -148,13 +152,19 @@ class Processor(var operator: IOperatorExecutor, val tag: WorkerTag)
   }
 
   final def disallowDataMessages: Receive = {
-    case msg @ NetworkMessage(_, data: InternalDataMessage) =>
-      throw new AmberException("not supposed to receive data messages at this time")
+    case msg @ NetworkMessage(_, data: WorkflowDataMessage) =>
+      throw new WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          "not supposed to receive data messages at this time",
+          "Principal:disallowDataMessages",
+          Map()
+        )
+      )
   }
 
   final def receiveDataMessages: Receive = {
-    case msg @ NetworkMessage(_, data: InternalDataMessage) =>
-      dataInputChannel.handleDataMessage(data)
+    case msg @ NetworkMessage(_, data: WorkflowDataMessage) =>
+      dataInputPort.handleDataMessage(data)
   }
 
   final def allowUpdateInputLinking: Receive = {
@@ -166,7 +176,13 @@ class Processor(var operator: IOperatorExecutor, val tag: WorkerTag)
   final def disallowUpdateInputLinking: Receive = {
     case UpdateInputLinking(edgeID, inputNum) =>
       sender ! Ack
-      throw new AmberException(s"update input linking of $edgeID is not allowed at this time")
+      throw new WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          s"update input linking of $edgeID is not allowed at this time",
+          "Principal:disallowUpdateInputLinking",
+          Map()
+        )
+      )
   }
 
   final def reactOnUpstreamExhausted: Receive = {

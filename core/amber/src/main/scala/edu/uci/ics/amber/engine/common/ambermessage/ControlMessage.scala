@@ -5,48 +5,51 @@ import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
 import edu.uci.ics.amber.engine.architecture.breakpoint.localbreakpoint.LocalBreakpoint
 import edu.uci.ics.amber.engine.common.tuple.ITuple
 import akka.actor.ActorRef
-import edu.uci.ics.amber.engine.common.ambermessage.neo.ControlEvent
+import edu.uci.ics.amber.engine.common.ambermessage.neo.ControlPayload
+import edu.uci.ics.amber.error.WorkflowRuntimeError
 
 object ControlMessage {
 
-  final case class Start() extends ControlEvent
+  final case class Start() extends ControlPayload
 
-  final case class Pause() extends ControlEvent
+  final case class Pause() extends ControlPayload
 
-  final case class ModifyLogic(newMetadata: OpExecConfig) extends ControlEvent
+  final case class ModifyLogic(newMetadata: OpExecConfig) extends ControlPayload
 
-  final case class Resume() extends ControlEvent
+  final case class Resume() extends ControlPayload
 
-  final case class QueryState() extends ControlEvent
+  final case class QueryState() extends ControlPayload
 
-  final case class QueryStatistics() extends ControlEvent
+  final case class QueryStatistics() extends ControlPayload
 
-  final case class CollectSinkResults() extends ControlEvent
+  final case class CollectSinkResults() extends ControlPayload
 
-  final case class LocalBreakpointTriggered() extends ControlEvent
+  final case class LocalBreakpointTriggered() extends ControlPayload
 
-  final case class RequireAck(msg: Any) extends ControlEvent
+  final case class RequireAck(msg: Any) extends ControlPayload
 
-  final case class Ack() extends ControlEvent
+  final case class Ack() extends ControlPayload
 
-  final case class AckWithInformation(info: Any) extends ControlEvent
+  final case class AckWithInformation(info: Any) extends ControlPayload
 
-  final case class AckWithSequenceNumber(sequenceNumber: Long) extends ControlEvent
+  final case class AckWithSequenceNumber(sequenceNumber: Long) extends ControlPayload
 
-  final case class AckOfEndSending() extends ControlEvent
+  final case class AckOfEndSending() extends ControlPayload
 
-  final case class StashOutput() extends ControlEvent
+  final case class StashOutput() extends ControlPayload
 
-  final case class ReleaseOutput() extends ControlEvent
+  final case class ReleaseOutput() extends ControlPayload
 
-  final case class SkipTuple(faultedTuple: FaultedTuple) extends ControlEvent
+  final case class SkipTuple(faultedTuple: FaultedTuple) extends ControlPayload
 
   final case class SkipTupleGivenWorkerRef(actorPath: String, faultedTuple: FaultedTuple)
-      extends ControlEvent
+      extends ControlPayload
 
-  final case class ModifyTuple(faultedTuple: FaultedTuple) extends ControlEvent
+  final case class ModifyTuple(faultedTuple: FaultedTuple) extends ControlPayload
 
-  final case class ResumeTuple(faultedTuple: FaultedTuple) extends ControlEvent
+  final case class ResumeTuple(faultedTuple: FaultedTuple) extends ControlPayload
 
-  final case class KillAndRecover() extends ControlEvent
+  final case class KillAndRecover() extends ControlPayload
+
+  final case class LogErrorToFrontEnd(err: WorkflowRuntimeError) extends ControlPayload
 }

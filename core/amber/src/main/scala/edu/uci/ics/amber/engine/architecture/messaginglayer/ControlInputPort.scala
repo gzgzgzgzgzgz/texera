@@ -1,40 +1,40 @@
 package edu.uci.ics.amber.engine.architecture.messaginglayer
 
-import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.InternalControlMessage
-import edu.uci.ics.amber.engine.common.ambermessage.neo.{ControlEvent, InternalMessage}
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
+import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.WorkflowControlMessage
+import edu.uci.ics.amber.engine.common.ambermessage.neo.{ControlPayload, WorkflowMessage}
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
 
 import scala.collection.mutable
 
 object ControlInputPort {
-  final case class InternalControlMessage(
-      from: Identifier,
+  final case class WorkflowControlMessage(
+      from: VirtualIdentity,
       sequenceNumber: Long,
-      command: ControlEvent
-  ) extends InternalMessage
+      payload: ControlPayload
+  ) extends WorkflowMessage
 }
 
 class ControlInputPort {
-  private val controlOrderingEnforcer =
-    new mutable.AnyRefMap[Identifier, OrderingEnforcer[ControlEvent]]()
+  private val idToOrderingEnforcers =
+    new mutable.AnyRefMap[VirtualIdentity, OrderingEnforcer[ControlPayload]]()
 
-  def handleControlMessage(msg: InternalControlMessage): Unit = {
+  def handleControlMessage(msg: WorkflowControlMessage): Unit = {
     OrderingEnforcer.reorderMessage(
-      controlOrderingEnforcer,
+      idToOrderingEnforcers,
       msg.from,
       msg.sequenceNumber,
-      msg.command
+      msg.payload
     ) match {
       case Some(iterable) =>
         processControlEvents(iterable)
       case None =>
         // discard duplicate
-        println(s"receive duplicated: ${msg.command}")
+        println(s"receive duplicated: ${msg.payload}")
     }
   }
 
   @inline
-  private def processControlEvents(iter: Iterable[ControlEvent]): Unit = {
+  private def processControlEvents(iter: Iterable[ControlPayload]): Unit = {
     iter.foreach {
       case other =>
       //TODO: implement future/promise here

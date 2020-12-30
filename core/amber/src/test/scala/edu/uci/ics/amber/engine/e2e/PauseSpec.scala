@@ -37,11 +37,10 @@ class PauseSpec
   }
 
   def shouldPause(
-      testName: String,
       operators: mutable.MutableList[OperatorDescriptor],
       links: mutable.MutableList[OperatorLink]
   ): Unit = {
-    val parent = TestProbe(testName)
+    val parent = TestProbe()
     val controller = parent.childActorOf(
       Utils.getControllerProps(operators, links)
     )
@@ -71,7 +70,6 @@ class PauseSpec
     val sink = TestOperators.sinkOpDesc()
     logger.info(s"csv-id ${csvOpDesc.operatorID}, sink-id ${sink.operatorID}")
     shouldPause(
-      "pause-csv-sink",
       mutable.MutableList[OperatorDescriptor](csvOpDesc, sink),
       mutable.MutableList[OperatorLink](OperatorLink(csvOpDesc.operatorID, sink.operatorID))
     )
@@ -85,7 +83,6 @@ class PauseSpec
       s"csv-id ${csvOpDesc.operatorID}, keyword-id ${keywordOpDesc.operatorID}, sink-id ${sink.operatorID}"
     )
     shouldPause(
-      "pause-csv-keyword-sink",
       mutable.MutableList[OperatorDescriptor](csvOpDesc, keywordOpDesc, sink),
       mutable.MutableList[OperatorLink](
         OperatorLink(csvOpDesc.operatorID, keywordOpDesc.operatorID),

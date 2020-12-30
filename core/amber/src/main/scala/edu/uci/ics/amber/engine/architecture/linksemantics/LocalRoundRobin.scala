@@ -7,7 +7,8 @@ import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.UpdateOutputLi
 import edu.uci.ics.amber.engine.common.ambertag.LinkTag
 import akka.event.LoggingAdapter
 import akka.util.Timeout
-import edu.uci.ics.amber.engine.common.ambertag.neo.Identifier
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 
 import scala.concurrent.ExecutionContext
 
@@ -28,7 +29,7 @@ class LocalRoundRobin(from: ActorLayer, to: ActorLayer, batchSize: Int, inputNum
       from.layer(x) -> from.identifiers(x)
     ) ++ to.layer.indices.map(x => to.layer(x) -> to.identifiers(x))).toMap
     matched.foreach(x => {
-      val receivers: Array[Identifier] =
+      val receivers: Array[ActorVirtualIdentity] =
         (tos(x) ++ isolatedtos.flatMap(x => tos(x))).map(actorToIdentifier)
       froms(x).foreach(y =>
         AdvancedMessageSending.blockingAskWithRetry(
