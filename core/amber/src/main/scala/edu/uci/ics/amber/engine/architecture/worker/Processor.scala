@@ -5,7 +5,7 @@ import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
 import edu.uci.ics.amber.engine.architecture.messaginglayer.DataInputPort.WorkflowDataMessage
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate.NetworkMessage
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.InputTuple
-import edu.uci.ics.amber.engine.common.amberexception.AmberException
+import edu.uci.ics.amber.engine.common.amberexception.WorkflowRuntimeException
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{QueryState, _}
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage._
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.{
@@ -22,6 +22,7 @@ import edu.uci.ics.amber.engine.common.{
 }
 import edu.uci.ics.amber.engine.faulttolerance.recovery.RecoveryPacket
 import edu.uci.ics.amber.engine.operators.OpExecConfig
+import edu.uci.ics.amber.error.WorkflowRuntimeError
 
 import scala.annotation.elidable
 import scala.annotation.elidable._
@@ -152,7 +153,13 @@ class Processor(var operator: IOperatorExecutor, val tag: WorkerTag)
 
   final def disallowDataMessages: Receive = {
     case msg @ NetworkMessage(_, data: WorkflowDataMessage) =>
-      throw new AmberException("not supposed to receive data messages at this time")
+      throw new WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          "not supposed to receive data messages at this time",
+          "Principal:disallowDataMessages",
+          Map()
+        )
+      )
   }
 
   final def receiveDataMessages: Receive = {
@@ -169,7 +176,13 @@ class Processor(var operator: IOperatorExecutor, val tag: WorkerTag)
   final def disallowUpdateInputLinking: Receive = {
     case UpdateInputLinking(edgeID, inputNum) =>
       sender ! Ack
-      throw new AmberException(s"update input linking of $edgeID is not allowed at this time")
+      throw new WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          s"update input linking of $edgeID is not allowed at this time",
+          "Principal:disallowUpdateInputLinking",
+          Map()
+        )
+      )
   }
 
   final def reactOnUpstreamExhausted: Receive = {

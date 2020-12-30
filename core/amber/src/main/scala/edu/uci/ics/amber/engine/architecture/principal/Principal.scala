@@ -6,7 +6,7 @@ import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.GlobalB
 import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.ActorLayer
 import edu.uci.ics.amber.engine.architecture.linksemantics.LinkStrategy
 import edu.uci.ics.amber.engine.architecture.worker.{WorkerState, WorkerStatistics}
-import edu.uci.ics.amber.engine.common.amberexception.AmberException
+import edu.uci.ics.amber.engine.common.amberexception.WorkflowRuntimeException
 import edu.uci.ics.amber.engine.common.ambermessage.PrincipalMessage.{AssignBreakpoint, _}
 import edu.uci.ics.amber.engine.common.ambermessage.StateMessage._
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{
@@ -15,6 +15,7 @@ import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{
   CollectSinkResults,
   KillAndRecover,
   LocalBreakpointTriggered,
+  LogErrorToFrontEnd,
   ModifyLogic,
   ModifyTuple,
   Pause,
@@ -53,7 +54,8 @@ import edu.uci.ics.amber.engine.common.{
   AmberUtils,
   Constants,
   ITupleSinkOperatorExecutor,
-  TableMetadata
+  TableMetadata,
+  WorkflowLogger
 }
 import edu.uci.ics.amber.engine.faulttolerance.recovery.RecoveryPacket
 import edu.uci.ics.amber.engine.operators.OpExecConfig
@@ -75,6 +77,9 @@ import akka.pattern.ask
 import com.google.common.base.Stopwatch
 import edu.uci.ics.amber.engine.architecture.common.WorkflowActor
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGate
+import com.typesafe.scalalogging.Logger
+import edu.uci.ics.amber.engine.architecture.controller.ControllerEvent.ErrorOccurred
+import edu.uci.ics.amber.error.WorkflowRuntimeError
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -95,6 +100,13 @@ class Principal(val metadata: OpExecConfig)
   implicit val timeout: Timeout = 5.seconds
   implicit val logAdapter: LoggingAdapter = log
 
+  private def errorLogAction(err: WorkflowRuntimeError): Unit = {
+    Logger(
+      s"Principal-${metadata.tag.getGlobalIdentity}-Logger"
+    ).error(err.convertToMap().mkString(" | "))
+    context.parent ! LogErrorToFrontEnd(err)
+  }
+  val errorLogger = WorkflowLogger(errorLogAction)
   val tau: FiniteDuration = Constants.defaultTau
   var workerLayers: Array[ActorLayer] = _
   var workerEdges: Array[LinkStrategy] = _
@@ -272,7 +284,7 @@ class Principal(val metadata: OpExecConfig)
       case RecoveryPacket(amberTag, seq1, seq2) =>
         receivedRecoveryInformation(amberTag) = (seq1, seq2)
       case WorkerMessage.ReportState(state) =>
-        log.info("running: " + sender + " to " + state)
+        try {log.info("running: " + sender + " to " + state)
         if (setWorkerState(sender, state)) {
           state match {
             case WorkerState.LocalBreakpointTriggered =>
@@ -342,9 +354,20 @@ class Principal(val metadata: OpExecConfig)
                 context.become(completed)
                 unstashAll()
               }
-            case _ => //skip others for now
-          }
+            case _ => //skip others for now}
         }
+      } catch {
+        case e: WorkflowRuntimeException =>
+          errorLogger.log(e.runtimeError)
+        case e: Exception =>
+          val error = WorkflowRuntimeError(
+            e.getMessage(),
+            "Principal:Running:WorkerMessage.ReportState",
+            Map("trace" -> e.getStackTrace.mkString("\n"))
+          )
+          errorLogger.log(error)
+          }
+
       case WorkerMessage.ReportStatistics(statistics) =>
         setWorkerStatistics(sender, statistics)
         context.parent ! PrincipalMessage.ReportStatistics(

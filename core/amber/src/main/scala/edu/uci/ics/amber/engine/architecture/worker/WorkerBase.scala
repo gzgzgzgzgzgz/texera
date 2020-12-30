@@ -17,13 +17,14 @@ import edu.uci.ics.amber.engine.architecture.messaginglayer.{
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.DummyInput
 import edu.uci.ics.amber.engine.architecture.worker.neo._
 import edu.uci.ics.amber.engine.common.IOperatorExecutor
-import edu.uci.ics.amber.engine.common.amberexception.AmberException
+import edu.uci.ics.amber.engine.common.amberexception.WorkflowRuntimeException
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage._
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage._
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 import edu.uci.ics.amber.engine.common.tuple.ITuple
+import edu.uci.ics.amber.error.WorkflowRuntimeError
 
 import scala.annotation.elidable
 import scala.annotation.elidable.INFO
@@ -148,10 +149,22 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
   final def disallowModifyBreakpoints: Receive = {
     case AssignBreakpoint(bp) =>
       sender ! Ack
-      throw new AmberException(s"Assignation of breakpoint ${bp.id} is not allowed at this time")
+      throw new WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          s"Assignation of breakpoint ${bp.id} is not allowed at this time",
+          "WorkerBase:disallowModifyBreakpoints",
+          Map()
+        )
+      )
     case RemoveBreakpoint(id) =>
       sender ! Ack
-      throw new AmberException(s"Removal of breakpoint $id is not allowed at this time")
+      throw new WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          s"Removal of breakpoint $id is not allowed at this time",
+          "WorkerBase:RemoveBreakpoint",
+          Map()
+        )
+      )
   }
 
   final def allowReset: Receive = {
@@ -166,13 +179,25 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
         toReport.get.isReported = true
         context.parent ! ReportedQueriedBreakpoint(toReport.get)
       } else {
-        throw new AmberException(s"breakpoint $id not found when query")
+        throw new WorkflowRuntimeException(
+          WorkflowRuntimeError(
+            s"breakpoint $id not found when query",
+            "WorkerBase:allowQueryBreakpoint",
+            Map()
+          )
+        )
       }
   }
 
   final def disallowQueryBreakpoint: Receive = {
     case QueryBreakpoint(id) =>
-      throw new AmberException(s"query breakpoint $id is not allowed at this time")
+      throw new WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          s"query breakpoint $id is not allowed at this time",
+          "WorkerBase:disallowQueryBreakpoint",
+          Map()
+        )
+      )
   }
 
   final def allowQueryTriggeredBreakpoints: Receive = {
@@ -182,15 +207,25 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
         toReport.foreach(_.isReported = true)
         sender ! ReportedTriggeredBreakpoints(toReport)
       } else {
-        throw new AmberException(
-          "no triggered local breakpoints but worker in triggered breakpoint state"
+        throw new WorkflowRuntimeException(
+          WorkflowRuntimeError(
+            "no triggered local breakpoints but worker in triggered breakpoint state",
+            "WorkerBase:allowQueryTriggeredBreakpoints",
+            Map()
+          )
         )
       }
   }
 
   final def disallowQueryTriggeredBreakpoints: Receive = {
     case QueryTriggeredBreakpoints =>
-      throw new AmberException(s"query triggered breakpoints is not allowed at this time")
+      throw new WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          s"query triggered breakpoints is not allowed at this time",
+          "WorkerBase:disallowQueryTriggeredBreakpoints",
+          Map()
+        )
+      )
   }
 
   final def allowUpdateOutputLinking: Receive = {
@@ -202,8 +237,12 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
   final def disallowUpdateOutputLinking: Receive = {
     case UpdateOutputLinking(policy, tag, receivers) =>
       sender ! Ack
-      throw new AmberException(
-        s"update output link information of $tag is not allowed at this time"
+      throw new WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          s"update output link information of $tag is not allowed at this time",
+          "WorkerBase:disallowUpdateOutputLinking",
+          Map()
+        )
       )
   }
 
@@ -354,7 +393,13 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
       case CollectSinkResults =>
         sender ! WorkerMessage.ReportOutputResult(this.getResultTuples().toList)
       case LocalBreakpointTriggered =>
-        throw new AmberException("breakpoint triggered after pause")
+        throw new WorkflowRuntimeException(
+          WorkflowRuntimeError(
+            "breakpoint triggered after pause",
+            "WorkerBase:paused:LocalBreakpointTriggered",
+            Map()
+          )
+        )
     } orElse discardOthers
 
   def running: Receive =
