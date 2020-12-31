@@ -3,23 +3,15 @@ package edu.uci.ics.amber.engine.architecture.worker
 import akka.actor.Props
 import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
 import edu.uci.ics.amber.engine.architecture.messaginglayer.DataInputPort.WorkflowDataMessage
-import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.NetworkMessage
+import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.{NetworkAck, NetworkMessage}
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.InputTuple
 import edu.uci.ics.amber.engine.common.amberexception.WorkflowRuntimeException
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.{QueryState, _}
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage._
-import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.{
-  ActorVirtualIdentity,
-  NamedActorVirtualIdentity
-}
+import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.{ActorVirtualIdentity, NamedActorVirtualIdentity}
 import edu.uci.ics.amber.engine.common.ambertag.{LayerTag, WorkerTag}
 import edu.uci.ics.amber.engine.common.tuple.ITuple
-import edu.uci.ics.amber.engine.common.{
-  AdvancedMessageSending,
-  ElidableStatement,
-  IOperatorExecutor,
-  ITupleSinkOperatorExecutor
-}
+import edu.uci.ics.amber.engine.common.{AdvancedMessageSending, ElidableStatement, IOperatorExecutor, ITupleSinkOperatorExecutor}
 import edu.uci.ics.amber.engine.faulttolerance.recovery.RecoveryPacket
 import edu.uci.ics.amber.engine.operators.OpExecConfig
 import edu.uci.ics.amber.error.WorkflowRuntimeError
@@ -163,7 +155,8 @@ class Processor(var operator: IOperatorExecutor, val tag: WorkerTag)
   }
 
   final def receiveDataMessages: Receive = {
-    case msg @ NetworkMessage(_, data: WorkflowDataMessage) =>
+    case msg @ NetworkMessage(id, data: WorkflowDataMessage) =>
+      sender ! NetworkAck(id)
       dataInputPort.handleDataMessage(data)
   }
 

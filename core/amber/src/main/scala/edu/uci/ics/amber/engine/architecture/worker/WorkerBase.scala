@@ -7,7 +7,7 @@ import com.softwaremill.macwire.wire
 import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
 import edu.uci.ics.amber.engine.architecture.common.WorkflowActor
 import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.WorkflowControlMessage
-import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.{NetworkMessage, QueryActorRef, RegisterActorRef}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.{NetworkAck, NetworkMessage, QueryActorRef, RegisterActorRef}
 import edu.uci.ics.amber.engine.architecture.messaginglayer.{BatchToTupleConverter, DataInputPort, DataOutputPort, TupleToBatchConverter}
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.DummyInput
 import edu.uci.ics.amber.engine.architecture.worker.neo._
@@ -508,8 +508,9 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
   }
 
   def processNewControlMessages: Receive = {
-    case msg @ NetworkMessage(_, cmd: WorkflowControlMessage) =>
+    case msg @ NetworkMessage(id, cmd: WorkflowControlMessage) =>
       println(s"received $msg")
+      sender ! NetworkAck(id)
       controlInputPort.handleControlMessage(cmd)
       newControlMessageHandler(cmd.payload)
   }
