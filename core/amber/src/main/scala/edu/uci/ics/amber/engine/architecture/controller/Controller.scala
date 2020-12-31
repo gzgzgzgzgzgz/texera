@@ -1,27 +1,84 @@
 package edu.uci.ics.amber.engine.architecture.controller
 
 import edu.uci.ics.amber.clustering.ClusterListener.GetAvailableNodeAddresses
-import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.{ExceptionGlobalBreakpoint, GlobalBreakpoint}
+import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.{
+  ExceptionGlobalBreakpoint,
+  GlobalBreakpoint
+}
 import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.GlobalBreakpoint
-import edu.uci.ics.amber.engine.architecture.controller.ControllerEvent.{BreakpointTriggered, ErrorOccurred, ModifyLogicCompleted, SkipTupleResponse, WorkflowCompleted, WorkflowPaused, WorkflowStatusUpdate}
+import edu.uci.ics.amber.engine.architecture.controller.ControllerEvent.{
+  BreakpointTriggered,
+  ErrorOccurred,
+  ModifyLogicCompleted,
+  SkipTupleResponse,
+  WorkflowCompleted,
+  WorkflowPaused,
+  WorkflowStatusUpdate
+}
 import edu.uci.ics.amber.engine.architecture.deploysemantics.deploystrategy.OneOnEach
 import edu.uci.ics.amber.engine.architecture.deploysemantics.deploymentfilter.FollowPrevious
-import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.{ActorLayer, GeneratorWorkerLayer, ProcessorWorkerLayer}
-import edu.uci.ics.amber.engine.faulttolerance.materializer.{HashBasedMaterializer, OutputMaterializer}
-import edu.uci.ics.amber.engine.architecture.linksemantics.{FullRoundRobin, HashBasedShuffle, LocalPartialToOne, OperatorLink}
-import edu.uci.ics.amber.engine.architecture.principal.{Principal, PrincipalState, PrincipalStatistics}
+import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.{
+  ActorLayer,
+  GeneratorWorkerLayer,
+  ProcessorWorkerLayer
+}
+import edu.uci.ics.amber.engine.faulttolerance.materializer.{
+  HashBasedMaterializer,
+  OutputMaterializer
+}
+import edu.uci.ics.amber.engine.architecture.linksemantics.{
+  FullRoundRobin,
+  HashBasedShuffle,
+  LocalPartialToOne,
+  OperatorLink
+}
+import edu.uci.ics.amber.engine.architecture.principal.{
+  Principal,
+  PrincipalState,
+  PrincipalStatistics
+}
 import edu.uci.ics.amber.engine.common.amberexception.WorkflowRuntimeException
 import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage._
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage._
 import edu.uci.ics.amber.engine.common.ambermessage.PrincipalMessage
-import edu.uci.ics.amber.engine.common.ambermessage.PrincipalMessage.{AckedPrincipalInitialization, AssignBreakpoint, GetOutputLayer, ReportCurrentProcessingTuple, ReportOutputResult, ReportPrincipalPartialCompleted}
+import edu.uci.ics.amber.engine.common.ambermessage.PrincipalMessage.{
+  AckedPrincipalInitialization,
+  AssignBreakpoint,
+  GetOutputLayer,
+  ReportCurrentProcessingTuple,
+  ReportOutputResult,
+  ReportPrincipalPartialCompleted
+}
 import edu.uci.ics.amber.engine.common.ambermessage.StateMessage.EnforceStateCheck
-import edu.uci.ics.amber.engine.common.ambertag.{AmberTag, LayerTag, LinkTag, OperatorIdentifier, WorkflowTag}
+import edu.uci.ics.amber.engine.common.ambertag.{
+  AmberTag,
+  LayerTag,
+  LinkTag,
+  OperatorIdentifier,
+  WorkflowTag
+}
 import edu.uci.ics.amber.engine.common.tuple.ITuple
-import edu.uci.ics.amber.engine.common.{AdvancedMessageSending, AmberUtils, Constants, ISourceOperatorExecutor, WorkflowLogger}
+import edu.uci.ics.amber.engine.common.{
+  AdvancedMessageSending,
+  AmberUtils,
+  Constants,
+  ISourceOperatorExecutor,
+  WorkflowLogger
+}
 import edu.uci.ics.amber.engine.faulttolerance.scanner.HDFSFolderScanSourceOperatorExecutor
 import edu.uci.ics.amber.engine.operators.OpExecConfig
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSelection, Address, Cancellable, Deploy, PoisonPill, Props, Stash}
+import akka.actor.{
+  Actor,
+  ActorLogging,
+  ActorRef,
+  ActorSelection,
+  Address,
+  Cancellable,
+  Deploy,
+  PoisonPill,
+  Props,
+  Stash
+}
 import akka.dispatch.Futures
 import akka.event.LoggingAdapter
 import akka.pattern.ask
@@ -180,7 +237,7 @@ class Controller(
     val withCheckpoint: Boolean,
     val eventListener: ControllerEventListener = ControllerEventListener(),
     val statisticsUpdateIntervalMs: Option[Long]
-) extends WorkflowActor(VirtualIdentity.Controller){
+) extends WorkflowActor(VirtualIdentity.Controller) {
   implicit val ec: ExecutionContext = context.dispatcher
   implicit val timeout: Timeout = 5.seconds
   implicit val logAdapter: LoggingAdapter = log

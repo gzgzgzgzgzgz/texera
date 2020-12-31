@@ -1,7 +1,13 @@
 package edu.uci.ics.amber.engine.architecture.messaginglayer
 
 import akka.actor.{Actor, ActorRef, Props, Stash}
-import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.{NetworkAck, NetworkMessage, QueryActorRef, RegisterActorRef, SendRequest}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.{
+  NetworkAck,
+  NetworkMessage,
+  QueryActorRef,
+  RegisterActorRef,
+  SendRequest
+}
 import edu.uci.ics.amber.engine.common.ambermessage.neo.WorkflowMessage
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
@@ -15,13 +21,13 @@ object NetworkSenderActor {
     * TODO: remove this after using Akka Typed APIs
     * @param ref
     */
-  case class NetworkSenderActorRef(ref:ActorRef){
+  case class NetworkSenderActorRef(ref: ActorRef) {
     def !(message: Any)(implicit sender: ActorRef = Actor.noSender): Unit = {
       ref ! message
     }
   }
 
-  final case class SendRequest(id:ActorVirtualIdentity, message:WorkflowMessage)
+  final case class SendRequest(id: ActorVirtualIdentity, message: WorkflowMessage)
 
   /** Identifier <-> ActorRef related messages
     */
@@ -48,7 +54,7 @@ object NetworkSenderActor {
   * and also sends message to other actors. This is the most outer part of
   * the messaging layer.
   */
-class NetworkSenderActor extends Actor{
+class NetworkSenderActor extends Actor {
 
   val idToActorRefs = new mutable.HashMap[ActorVirtualIdentity, ActorRef]()
   val messageStash = new mutable.HashMap[ActorVirtualIdentity, mutable.Queue[WorkflowMessage]]()
@@ -73,8 +79,8 @@ class NetworkSenderActor extends Actor{
   def findActorRefFromVirtualIdentity: Receive = {
     case QueryActorRef(id, replyTo) =>
       if (idToActorRefs.contains(id)) {
-        replyTo.foreach{
-          actor => actor ! RegisterActorRef(id, idToActorRefs(id))
+        replyTo.foreach { actor =>
+          actor ! RegisterActorRef(id, idToActorRefs(id))
         }
       } else {
         context.parent ! QueryActorRef(id, replyTo + self)
@@ -102,10 +108,10 @@ class NetworkSenderActor extends Actor{
     * @param message
     */
   private def forward(to: ActorVirtualIdentity, message: WorkflowMessage): Unit = {
-    val congestionControl = idToCongestionControls.getOrElseUpdate(to,new CongestionControl())
+    val congestionControl = idToCongestionControls.getOrElseUpdate(to, new CongestionControl())
     val data = NetworkMessage(messageID, message)
     messageIDToIdentity(messageID) = to
-    if(congestionControl.canBeSent(data)){
+    if (congestionControl.canBeSent(data)) {
       println(s"send $data")
       idToActorRefs(to) ! data
     }
@@ -127,18 +133,16 @@ class NetworkSenderActor extends Actor{
     }
   }
 
-  def sendMessagesAndReceiveAcks:Receive = {
+  def sendMessagesAndReceiveAcks: Receive = {
     case SendRequest(id, msg) =>
       forwardMessage(id, msg)
     case NetworkAck(id) =>
       val actorID = messageIDToIdentity(id)
-      idToCongestionControls(actorID).ack(id).foreach{
-        msg =>
-          println(s"send $msg")
-          idToActorRefs(actorID) ! msg
+      idToCongestionControls(actorID).ack(id).foreach { msg =>
+        println(s"send $msg")
+        idToActorRefs(actorID) ! msg
       }
   }
-
 
   override def receive: Receive = {
     sendMessagesAndReceiveAcks orElse findActorRefFromVirtualIdentity
