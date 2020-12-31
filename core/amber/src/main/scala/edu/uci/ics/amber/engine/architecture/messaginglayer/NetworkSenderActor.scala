@@ -112,7 +112,7 @@ class NetworkSenderActor extends Actor {
     val data = NetworkMessage(messageID, message)
     messageIDToIdentity(messageID) = to
     if (congestionControl.canBeSent(data)) {
-      println(s"send $data")
+      //println(s"send $data")
       idToActorRefs(to) ! data
     }
     messageID += 1
