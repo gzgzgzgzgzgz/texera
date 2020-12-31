@@ -139,7 +139,7 @@ class NetworkSenderActor extends Actor {
     case NetworkAck(id) =>
       val actorID = messageIDToIdentity(id)
       idToCongestionControls(actorID).ack(id).foreach { msg =>
-        println(s"send $msg")
+        //println(s"send $msg")
         idToActorRefs(actorID) ! msg
       }
   }

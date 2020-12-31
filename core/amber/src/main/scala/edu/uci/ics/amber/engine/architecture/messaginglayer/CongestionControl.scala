@@ -34,7 +34,7 @@ class CongestionControl {
       inTransit(data.messageID) = data
       true
     } else {
-      println(s"queued $data")
+      //println(s"queued $data")
       toBeSent.enqueue(data)
       false
     }

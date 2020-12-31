@@ -519,7 +519,7 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
 
   def processNewControlMessages: Receive = {
     case msg @ NetworkMessage(id, cmd: WorkflowControlMessage) =>
-      println(s"received $msg")
+      //println(s"received $msg")
       sender ! NetworkAck(id)
       controlInputPort.handleControlMessage(cmd)
       newControlMessageHandler(cmd.payload)
