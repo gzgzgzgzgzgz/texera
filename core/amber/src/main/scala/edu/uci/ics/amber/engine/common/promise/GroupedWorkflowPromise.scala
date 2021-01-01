@@ -4,6 +4,8 @@ import com.twitter.util.Promise
 
 import scala.collection.mutable
 
+// grouped promise, used when a single actor needs to
+// send control to a group of actors and wait all the results.
 case class GroupedWorkflowPromise[T](startID: Long, endID: Long, promise: WorkflowPromise[Seq[T]]) {
 
   val returnValues: mutable.ArrayBuffer[T] = mutable.ArrayBuffer[T]()

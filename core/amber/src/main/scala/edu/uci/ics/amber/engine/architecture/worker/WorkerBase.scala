@@ -106,7 +106,8 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
   def onPausing(): Unit = {
     // messagingManager.pauseDataSending()
     // pauseManager.pause()
-    promiseManager.consume(PromiseInvocation(null, WorkerPause()))
+    promiseManager.execute(PromiseInvocation(null, WorkerPause()))
+    context.become(pausing)
   }
 
   def onPaused(): Unit = {
