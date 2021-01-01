@@ -108,8 +108,9 @@ class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
       promiseFromActorThread = null
     }
     // thread blocks here
+    logger.info(s"dp thread blocked")
     this.dpThreadBlocker.get
-    logger.info(s"resumed")
+    logger.info(s"dp thread resumed")
   }
 
   /** unblock DP thread by resolving the CompletableFuture
@@ -119,6 +120,7 @@ class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
     if (dpThreadBlocker != null) {
       logger.info("resume the worker by complete the future")
       this.dpThreadBlocker.complete(null)
+
       this.dpThreadBlocker = null
     }
   }
