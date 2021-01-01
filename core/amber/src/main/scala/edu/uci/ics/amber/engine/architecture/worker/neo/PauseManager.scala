@@ -120,8 +120,6 @@ class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
     if (dpThreadBlocker != null) {
       logger.info("resume the worker by complete the future")
       this.dpThreadBlocker.complete(null)
-
-      this.dpThreadBlocker = null
     }
   }
 
