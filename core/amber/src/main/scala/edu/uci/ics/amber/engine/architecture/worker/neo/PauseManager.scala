@@ -109,6 +109,7 @@ class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
     }
     // thread blocks here
     this.dpThreadBlocker.get
+    logger.info(s"resumed")
   }
 
   /** unblock DP thread by resolving the CompletableFuture
