@@ -10,7 +10,12 @@ import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlOutputPort
 import edu.uci.ics.amber.engine.architecture.worker.neo.PauseManager.{NoPause, Paused}
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.ExecutionPaused
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
-import edu.uci.ics.amber.engine.common.promise.{PromiseCompleted, PromiseContext, ReturnPayload, WorkflowPromise}
+import edu.uci.ics.amber.engine.common.promise.{
+  PromiseCompleted,
+  PromiseContext,
+  ReturnPayload,
+  WorkflowPromise
+}
 
 object PauseManager {
   final val NoPause = 0
