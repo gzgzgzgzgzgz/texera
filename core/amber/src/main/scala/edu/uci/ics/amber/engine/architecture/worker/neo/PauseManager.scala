@@ -5,23 +5,19 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.ActorRef
 import com.twitter.util.Promise
+import com.typesafe.scalalogging.LazyLogging
 import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlOutputPort
 import edu.uci.ics.amber.engine.architecture.worker.neo.PauseManager.{NoPause, Paused}
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.ExecutionPaused
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
-import edu.uci.ics.amber.engine.common.promise.{
-  PromiseCompleted,
-  PromiseContext,
-  ReturnPayload,
-  WorkflowPromise
-}
+import edu.uci.ics.amber.engine.common.promise.{PromiseCompleted, PromiseContext, ReturnPayload, WorkflowPromise}
 
 object PauseManager {
   final val NoPause = 0
   final val Paused = 1
 }
 
-class PauseManager(controlOutputPort: ControlOutputPort) {
+class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
 
   // current pause privilege level
   private val pausePrivilegeLevel = new AtomicInteger(PauseManager.NoPause)
@@ -69,6 +65,7 @@ class PauseManager(controlOutputPort: ControlOutputPort) {
     */
   def resume(): Unit = {
     if (pausePrivilegeLevel.get() == NoPause) {
+      logger.info("already resumed")
       return
     }
     // only privilege level >= current pause privilege level can resume the worker
@@ -114,6 +111,7 @@ class PauseManager(controlOutputPort: ControlOutputPort) {
   private[this] def unblockDPThread(): Unit = {
     // If dp thread suspended, release it
     if (dpThreadBlocker != null) {
+      logger.info("resume the worker by complete the future")
       this.dpThreadBlocker.complete(null)
       this.dpThreadBlocker = null
     }

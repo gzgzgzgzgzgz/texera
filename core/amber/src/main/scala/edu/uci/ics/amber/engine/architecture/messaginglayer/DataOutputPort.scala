@@ -22,7 +22,6 @@ class DataOutputPort(selfID: ActorVirtualIdentity, networkSenderActor: NetworkSe
     extends LazyLogging {
 
   private val idToSequenceNums = new mutable.AnyRefMap[ActorVirtualIdentity, AtomicLong]()
-  private var c = 0
 
   def sendTo(to: ActorVirtualIdentity, event: DataPayload): Unit = {
     val msg = WorkflowDataMessage(
@@ -30,10 +29,6 @@ class DataOutputPort(selfID: ActorVirtualIdentity, networkSenderActor: NetworkSe
       idToSequenceNums.getOrElseUpdate(to, new AtomicLong()).getAndIncrement(),
       event
     )
-    c += 1
-    if (c % 20 == 0) {
-      logger.info(s"send $msg to $to")
-    }
     networkSenderActor ! SendRequest(to, msg)
   }
 
