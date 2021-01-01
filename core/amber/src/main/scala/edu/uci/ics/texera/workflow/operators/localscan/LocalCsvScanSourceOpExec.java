@@ -73,7 +73,6 @@ public class LocalCsvScanSourceOpExec implements SourceOperatorExecutor {
                                 IntStream.range(0, schema.getAttributes().size() - res.length).mapToObj(i -> null))
                                 .toArray(String[]::new);
                     }
-
                     return Tuple.newBuilder().add(schema, res).build();
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);

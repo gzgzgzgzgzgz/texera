@@ -1,84 +1,27 @@
 package edu.uci.ics.amber.engine.architecture.controller
 
 import edu.uci.ics.amber.clustering.ClusterListener.GetAvailableNodeAddresses
-import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.{
-  ExceptionGlobalBreakpoint,
-  GlobalBreakpoint
-}
+import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.{ExceptionGlobalBreakpoint, GlobalBreakpoint}
 import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.GlobalBreakpoint
-import edu.uci.ics.amber.engine.architecture.controller.ControllerEvent.{
-  BreakpointTriggered,
-  ErrorOccurred,
-  ModifyLogicCompleted,
-  SkipTupleResponse,
-  WorkflowCompleted,
-  WorkflowPaused,
-  WorkflowStatusUpdate
-}
+import edu.uci.ics.amber.engine.architecture.controller.ControllerEvent.{BreakpointTriggered, ErrorOccurred, ModifyLogicCompleted, SkipTupleResponse, WorkflowCompleted, WorkflowPaused, WorkflowStatusUpdate}
 import edu.uci.ics.amber.engine.architecture.deploysemantics.deploystrategy.OneOnEach
 import edu.uci.ics.amber.engine.architecture.deploysemantics.deploymentfilter.FollowPrevious
-import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.{
-  ActorLayer,
-  GeneratorWorkerLayer,
-  ProcessorWorkerLayer
-}
-import edu.uci.ics.amber.engine.faulttolerance.materializer.{
-  HashBasedMaterializer,
-  OutputMaterializer
-}
-import edu.uci.ics.amber.engine.architecture.linksemantics.{
-  FullRoundRobin,
-  HashBasedShuffle,
-  LocalPartialToOne,
-  OperatorLink
-}
-import edu.uci.ics.amber.engine.architecture.principal.{
-  Principal,
-  PrincipalState,
-  PrincipalStatistics
-}
+import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.{ActorLayer, GeneratorWorkerLayer, ProcessorWorkerLayer}
+import edu.uci.ics.amber.engine.faulttolerance.materializer.{HashBasedMaterializer, OutputMaterializer}
+import edu.uci.ics.amber.engine.architecture.linksemantics.{FullRoundRobin, HashBasedShuffle, LocalPartialToOne, OperatorLink}
+import edu.uci.ics.amber.engine.architecture.principal.{Principal, PrincipalState, PrincipalStatistics}
 import edu.uci.ics.amber.engine.common.amberexception.WorkflowRuntimeException
 import edu.uci.ics.amber.engine.common.ambermessage.ControllerMessage._
 import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage._
 import edu.uci.ics.amber.engine.common.ambermessage.PrincipalMessage
-import edu.uci.ics.amber.engine.common.ambermessage.PrincipalMessage.{
-  AckedPrincipalInitialization,
-  AssignBreakpoint,
-  GetOutputLayer,
-  ReportCurrentProcessingTuple,
-  ReportOutputResult,
-  ReportPrincipalPartialCompleted
-}
+import edu.uci.ics.amber.engine.common.ambermessage.PrincipalMessage.{AckedPrincipalInitialization, AssignBreakpoint, GetOutputLayer, ReportCurrentProcessingTuple, ReportOutputResult, ReportPrincipalPartialCompleted}
 import edu.uci.ics.amber.engine.common.ambermessage.StateMessage.EnforceStateCheck
-import edu.uci.ics.amber.engine.common.ambertag.{
-  AmberTag,
-  LayerTag,
-  LinkTag,
-  OperatorIdentifier,
-  WorkflowTag
-}
+import edu.uci.ics.amber.engine.common.ambertag.{AmberTag, LayerTag, LinkTag, OperatorIdentifier, WorkflowTag}
 import edu.uci.ics.amber.engine.common.tuple.ITuple
-import edu.uci.ics.amber.engine.common.{
-  AdvancedMessageSending,
-  AmberUtils,
-  Constants,
-  ISourceOperatorExecutor,
-  WorkflowLogger
-}
+import edu.uci.ics.amber.engine.common.{AdvancedMessageSending, AmberUtils, Constants, ISourceOperatorExecutor, WorkflowLogger}
 import edu.uci.ics.amber.engine.faulttolerance.scanner.HDFSFolderScanSourceOperatorExecutor
 import edu.uci.ics.amber.engine.operators.OpExecConfig
-import akka.actor.{
-  Actor,
-  ActorLogging,
-  ActorRef,
-  ActorSelection,
-  Address,
-  Cancellable,
-  Deploy,
-  PoisonPill,
-  Props,
-  Stash
-}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSelection, Address, Cancellable, Deploy, PoisonPill, Props, Stash}
 import akka.dispatch.Futures
 import akka.event.LoggingAdapter
 import akka.pattern.ask
@@ -89,12 +32,15 @@ import com.google.common.base.Stopwatch
 import play.api.libs.json.{JsArray, JsValue, Json}
 import com.google.common.collect.BiMap
 import com.google.common.collect.HashBiMap
+import com.softwaremill.macwire.wire
 import com.typesafe.scalalogging.Logger
 import edu.uci.ics.amber.engine.architecture.common.WorkflowActor
 import edu.uci.ics.amber.error.WorkflowRuntimeError
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.RegisterActorRef
+import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerPromiseManager
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
+import edu.uci.ics.amber.engine.common.promise.PromiseManager
 
 import collection.JavaConverters._
 import scala.collection.mutable
@@ -240,6 +186,8 @@ class Controller(
 ) extends WorkflowActor(VirtualIdentity.Controller) {
   implicit val ec: ExecutionContext = context.dispatcher
   implicit val timeout: Timeout = 5.seconds
+
+  override lazy val promiseManager: PromiseManager = wire[PromiseManager]
 
   private def errorLogAction(err: WorkflowRuntimeError): Unit = {
     Logger(

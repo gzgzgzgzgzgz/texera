@@ -3,6 +3,7 @@ package edu.uci.ics.amber.engine.architecture.messaginglayer
 import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.WorkflowControlMessage
 import edu.uci.ics.amber.engine.common.ambermessage.neo.{ControlPayload, WorkflowMessage}
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
+import edu.uci.ics.amber.engine.common.promise.{PromiseManager, PromisePayload}
 
 import scala.collection.mutable
 
@@ -14,7 +15,7 @@ object ControlInputPort {
   ) extends WorkflowMessage
 }
 
-class ControlInputPort {
+class ControlInputPort(promiseManager: PromiseManager) {
   private val idToOrderingEnforcers =
     new mutable.AnyRefMap[VirtualIdentity, OrderingEnforcer[ControlPayload]]()
 
@@ -36,8 +37,10 @@ class ControlInputPort {
   @inline
   private def processControlEvents(iter: Iterable[ControlPayload]): Unit = {
     iter.foreach {
+      case p:PromisePayload =>
+        promiseManager.consume(p)
       case other =>
-      //TODO: implement future/promise here
+        //skip for now
     }
   }
 }

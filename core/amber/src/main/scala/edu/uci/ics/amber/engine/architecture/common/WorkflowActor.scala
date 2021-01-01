@@ -3,18 +3,11 @@ package edu.uci.ics.amber.engine.architecture.common
 import akka.actor.{Actor, ActorLogging, ActorRef, Stash}
 import com.softwaremill.macwire.wire
 import com.typesafe.scalalogging.LazyLogging
-import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.{
-  NetworkSenderActorRef,
-  QueryActorRef,
-  RegisterActorRef
-}
-import edu.uci.ics.amber.engine.architecture.messaginglayer.{
-  ControlInputPort,
-  ControlOutputPort,
-  NetworkSenderActor
-}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.{NetworkSenderActorRef, QueryActorRef, RegisterActorRef}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.{ControlInputPort, ControlOutputPort, NetworkSenderActor}
 import edu.uci.ics.amber.engine.common.amberexception.WorkflowRuntimeException
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
+import edu.uci.ics.amber.engine.common.promise.PromiseManager
 import edu.uci.ics.amber.error.WorkflowRuntimeError
 
 abstract class WorkflowActor(val identifier: ActorVirtualIdentity)
@@ -27,6 +20,8 @@ abstract class WorkflowActor(val identifier: ActorVirtualIdentity)
   )
   lazy val controlInputPort: ControlInputPort = wire[ControlInputPort]
   lazy val controlOutputPort: ControlOutputPort = wire[ControlOutputPort]
+
+  val promiseManager:PromiseManager
 
   def routeActorRefRelatedMessages: Receive = {
     case QueryActorRef(id, replyTo) =>

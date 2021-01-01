@@ -4,10 +4,12 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor.ActorRef
+import com.twitter.util.Promise
 import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlOutputPort
 import edu.uci.ics.amber.engine.architecture.worker.neo.PauseManager.{NoPause, Paused}
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.ExecutionPaused
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
+import edu.uci.ics.amber.engine.common.promise.{PromiseCompleted, PromiseContext, ReturnPayload, WorkflowPromise}
 
 object PauseManager {
   final val NoPause = 0
@@ -22,6 +24,7 @@ class PauseManager(controlOutputPort: ControlOutputPort) {
   // volatile is necessary otherwise main thread cannot notice the change.
   // volatile means read/writes are through memory rather than CPU cache
   @volatile private var dpThreadBlocker: CompletableFuture[Void] = _
+  @volatile private var promiseFromActorThread: WorkflowPromise[ExecutionPaused] = _
 
   /** pause functionality
     * both dp thread and actor can call this function
@@ -34,8 +37,24 @@ class PauseManager(controlOutputPort: ControlOutputPort) {
       if(level >= pausePrivilegeLevel.get())
         pausePrivilegeLevel.set(level)
      */
-    pausePrivilegeLevel.getAndUpdate(i => if (Paused >= i) Paused else i)
+    pausePrivilegeLevel.getAndUpdate{
+      i =>
+        if (Paused >= i){
+          Paused
+        } else i
+    }
+
   }
+
+  def registerPromise(workflowPromise: WorkflowPromise[ExecutionPaused]): Unit = {
+    if(isPaused){
+      controlOutputPort.sendTo(VirtualIdentity.Self, ReturnPayload(workflowPromise.ctx, ExecutionPaused()))
+    }else{
+      promiseFromActorThread = workflowPromise
+    }
+  }
+
+  def isPaused: Boolean = isPauseSet() && dpThreadBlocker != null
 
   /** resume functionality
     * only actor calls this function for now
@@ -57,13 +76,15 @@ class PauseManager(controlOutputPort: ControlOutputPort) {
   @throws[Exception]
   def checkForPause(): Unit = {
     // returns if not paused
-    if (this.pausePrivilegeLevel.get() == PauseManager.NoPause) return
-    blockDPThread()
+    if (isPauseSet()){
+      blockDPThread()
+    }
   }
 
-  def isPaused(): Boolean = {
-    !(pausePrivilegeLevel.get() == PauseManager.NoPause)
+  def isPauseSet(): Boolean = {
+    (pausePrivilegeLevel.get() != PauseManager.NoPause)
   }
+
 
   /** block the thread by creating CompletableFuture and wait for completion
     */
@@ -71,7 +92,10 @@ class PauseManager(controlOutputPort: ControlOutputPort) {
     // create a future and wait for its completion
     this.dpThreadBlocker = new CompletableFuture[Void]
     // notify main actor thread
-    controlOutputPort.sendTo(VirtualIdentity.Self, ExecutionPaused())
+    if(promiseFromActorThread != null){
+      controlOutputPort.sendTo(VirtualIdentity.Self, ReturnPayload(promiseFromActorThread.ctx, ExecutionPaused()))
+      promiseFromActorThread = null
+    }
     // thread blocks here
     this.dpThreadBlocker.get
   }
@@ -80,7 +104,7 @@ class PauseManager(controlOutputPort: ControlOutputPort) {
     */
   private[this] def unblockDPThread(): Unit = {
     // If dp thread suspended, release it
-    if (this.dpThreadBlocker != null) {
+    if (dpThreadBlocker != null) {
       this.dpThreadBlocker.complete(null)
       this.dpThreadBlocker = null
     }
