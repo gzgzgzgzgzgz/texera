@@ -5,7 +5,10 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.actor.ActorRef
 import com.typesafe.scalalogging.LazyLogging
 import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.WorkflowControlMessage
-import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.{NetworkSenderActorRef, SendRequest}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.{
+  NetworkSenderActorRef,
+  SendRequest
+}
 import edu.uci.ics.amber.engine.common.ambermessage.neo.ControlPayload
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 
@@ -15,7 +18,8 @@ import scala.collection.mutable
   * The internal logic can send control messages to other actor without knowing
   * where the actor is and without determining the sequence number.
   */
-class ControlOutputPort(selfID: ActorVirtualIdentity, networkSenderActor: NetworkSenderActorRef) extends LazyLogging {
+class ControlOutputPort(selfID: ActorVirtualIdentity, networkSenderActor: NetworkSenderActorRef)
+    extends LazyLogging {
   private val idToSequenceNums = new mutable.AnyRefMap[ActorVirtualIdentity, AtomicLong]()
 
   def sendTo(to: ActorVirtualIdentity, event: ControlPayload): Unit = {

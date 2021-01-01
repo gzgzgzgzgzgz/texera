@@ -7,8 +7,18 @@ import com.softwaremill.macwire.wire
 import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
 import edu.uci.ics.amber.engine.architecture.common.WorkflowActor
 import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.WorkflowControlMessage
-import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.{NetworkAck, NetworkMessage, QueryActorRef, RegisterActorRef}
-import edu.uci.ics.amber.engine.architecture.messaginglayer.{BatchToTupleConverter, DataInputPort, DataOutputPort, TupleToBatchConverter}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.{
+  NetworkAck,
+  NetworkMessage,
+  QueryActorRef,
+  RegisterActorRef
+}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.{
+  BatchToTupleConverter,
+  DataInputPort,
+  DataOutputPort,
+  TupleToBatchConverter
+}
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.DummyInput
 import edu.uci.ics.amber.engine.architecture.worker.neo._
 import edu.uci.ics.amber.engine.architecture.worker.neo.promisehandlers.PauseHandler.WorkerPause
@@ -19,7 +29,12 @@ import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage._
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
-import edu.uci.ics.amber.engine.common.promise.{PromiseContext, PromiseInvocation, PromiseManager, ReturnPayload}
+import edu.uci.ics.amber.engine.common.promise.{
+  PromiseContext,
+  PromiseInvocation,
+  PromiseManager,
+  ReturnPayload
+}
 import edu.uci.ics.amber.engine.common.tuple.ITuple
 import edu.uci.ics.amber.error.WorkflowRuntimeError
 
@@ -500,7 +515,7 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
       onCompleted()
       context.become(completed)
       unstashAll()
-    case ReturnPayload(_,v:ExecutionPaused) =>
+    case ReturnPayload(_, v: ExecutionPaused) =>
       onPaused()
       context.become(paused)
       unstashAll()

@@ -9,7 +9,12 @@ import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlOutputPort
 import edu.uci.ics.amber.engine.architecture.worker.neo.PauseManager.{NoPause, Paused}
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.ExecutionPaused
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
-import edu.uci.ics.amber.engine.common.promise.{PromiseCompleted, PromiseContext, ReturnPayload, WorkflowPromise}
+import edu.uci.ics.amber.engine.common.promise.{
+  PromiseCompleted,
+  PromiseContext,
+  ReturnPayload,
+  WorkflowPromise
+}
 
 object PauseManager {
   final val NoPause = 0
@@ -37,19 +42,21 @@ class PauseManager(controlOutputPort: ControlOutputPort) {
       if(level >= pausePrivilegeLevel.get())
         pausePrivilegeLevel.set(level)
      */
-    pausePrivilegeLevel.getAndUpdate{
-      i =>
-        if (Paused >= i){
-          Paused
-        } else i
+    pausePrivilegeLevel.getAndUpdate { i =>
+      if (Paused >= i) {
+        Paused
+      } else i
     }
 
   }
 
   def registerPromise(workflowPromise: WorkflowPromise[ExecutionPaused]): Unit = {
-    if(isPaused){
-      controlOutputPort.sendTo(VirtualIdentity.Self, ReturnPayload(workflowPromise.ctx, ExecutionPaused()))
-    }else{
+    if (isPaused) {
+      controlOutputPort.sendTo(
+        VirtualIdentity.Self,
+        ReturnPayload(workflowPromise.ctx, ExecutionPaused())
+      )
+    } else {
       promiseFromActorThread = workflowPromise
     }
   }
@@ -76,7 +83,7 @@ class PauseManager(controlOutputPort: ControlOutputPort) {
   @throws[Exception]
   def checkForPause(): Unit = {
     // returns if not paused
-    if (isPauseSet()){
+    if (isPauseSet()) {
       blockDPThread()
     }
   }
@@ -85,15 +92,17 @@ class PauseManager(controlOutputPort: ControlOutputPort) {
     (pausePrivilegeLevel.get() != PauseManager.NoPause)
   }
 
-
   /** block the thread by creating CompletableFuture and wait for completion
     */
   private[this] def blockDPThread(): Unit = {
     // create a future and wait for its completion
     this.dpThreadBlocker = new CompletableFuture[Void]
     // notify main actor thread
-    if(promiseFromActorThread != null){
-      controlOutputPort.sendTo(VirtualIdentity.Self, ReturnPayload(promiseFromActorThread.ctx, ExecutionPaused()))
+    if (promiseFromActorThread != null) {
+      controlOutputPort.sendTo(
+        VirtualIdentity.Self,
+        ReturnPayload(promiseFromActorThread.ctx, ExecutionPaused())
+      )
       promiseFromActorThread = null
     }
     // thread blocks here

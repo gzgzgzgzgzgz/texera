@@ -6,17 +6,21 @@ import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.Dumm
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerPromiseManager
 import edu.uci.ics.amber.engine.architecture.worker.neo.promisehandlers.PauseHandler.WorkerPause
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.{ExecutionPaused, ReportState}
-import edu.uci.ics.amber.engine.common.promise.{PromiseBody, PromiseCompleted, PromiseHandler, SynchronizedInvocation}
+import edu.uci.ics.amber.engine.common.promise.{
+  PromiseBody,
+  PromiseCompleted,
+  PromiseHandler,
+  SynchronizedInvocation
+}
 
-
-object PauseHandler{
+object PauseHandler {
   final case class WorkerPause() extends PromiseBody[PromiseCompleted]
 }
 
 trait PauseHandler extends PromiseHandler {
-  this:WorkerPromiseManager =>
+  this: WorkerPromiseManager =>
 
-  registerHandler{
+  registerHandler {
     case WorkerPause() =>
       val p = createLocalPromise[ExecutionPaused]()
       pauseManager.registerPromise(p)
@@ -26,9 +30,8 @@ trait PauseHandler extends PromiseHandler {
         // insert dummy batch to unblock dp thread
         dataProcessor.appendElement(DummyInput())
       }
-      p.map {
-        res =>
-          returning()
+      p.map { res =>
+        returning()
       }
   }
 }

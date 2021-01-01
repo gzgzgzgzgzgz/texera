@@ -7,7 +7,8 @@ import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtual
 
 import scala.collection.mutable
 
-class PromiseManager(selfID:ActorVirtualIdentity, controlOutputPort: ControlOutputPort) extends LazyLogging {
+class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOutputPort)
+    extends LazyLogging {
 
   protected var promiseID = 0L
   protected val unCompletedPromises = new mutable.HashMap[PromiseContext, WorkflowPromise[_]]()
@@ -17,8 +18,9 @@ class PromiseManager(selfID:ActorVirtualIdentity, controlOutputPort: ControlOutp
   protected val ongoingSyncPromises = new mutable.HashSet[PromiseContext]()
   protected var syncPromiseRoot: PromiseContext = _
 
-  protected var promiseHandler: PartialFunction[PromiseBody[_], Unit] = { case promise =>
-    logger.info(s"discarding $promise")
+  protected var promiseHandler: PartialFunction[PromiseBody[_], Unit] = {
+    case promise =>
+      logger.info(s"discarding $promise")
   }
 
   def consume(event: PromisePayload): Unit = {
@@ -83,7 +85,9 @@ class PromiseManager(selfID:ActorVirtualIdentity, controlOutputPort: ControlOutp
     if (seq.isEmpty) {
       promise.setValue(Seq.empty)
     } else {
-      unCompletedGroupPromises.add(GroupedWorkflowPromise[T](promiseID, promiseID + seq.length, promise))
+      unCompletedGroupPromises.add(
+        GroupedWorkflowPromise[T](promiseID, promiseID + seq.length, promise)
+      )
       seq.foreach { i =>
         val ctx = mkPromiseContext()
         promiseID += 1
@@ -92,7 +96,6 @@ class PromiseManager(selfID:ActorVirtualIdentity, controlOutputPort: ControlOutp
     }
     promise
   }
-
 
   def returning(value: Any): Unit = {
     // returning should be used at most once per context
@@ -105,7 +108,10 @@ class PromiseManager(selfID:ActorVirtualIdentity, controlOutputPort: ControlOutp
   def returning(): Unit = {
     // returning should be used at most once per context
     if (promiseContext != null) {
-      controlOutputPort.sendTo(promiseContext.sender, ReturnPayload(promiseContext, PromiseCompleted()))
+      controlOutputPort.sendTo(
+        promiseContext.sender,
+        ReturnPayload(promiseContext, PromiseCompleted())
+      )
       exitCurrentPromise()
     }
   }

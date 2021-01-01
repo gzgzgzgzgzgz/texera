@@ -4,7 +4,10 @@ import java.util.concurrent.Executors
 
 import com.typesafe.scalalogging.LazyLogging
 import edu.uci.ics.amber.engine.architecture.breakpoint.localbreakpoint.ExceptionBreakpoint
-import edu.uci.ics.amber.engine.architecture.messaginglayer.{ControlOutputPort, TupleToBatchConverter}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.{
+  ControlOutputPort,
+  TupleToBatchConverter
+}
 import edu.uci.ics.amber.engine.architecture.worker.BreakpointSupport
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue._
 import edu.uci.ics.amber.engine.common.amberexception.BreakpointException
@@ -21,7 +24,7 @@ class DataProcessor( // dependencies:
     pauseManager: PauseManager // to pause/resume
 ) extends BreakpointSupport
     with WorkerInternalQueue
-    with LazyLogging{ // TODO: make breakpointSupport as a module
+    with LazyLogging { // TODO: make breakpointSupport as a module
 
   // dp thread stats:
   // TODO: add another variable for recovery index instead of using the counts below.

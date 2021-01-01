@@ -37,10 +37,10 @@ class ControlInputPort(promiseManager: PromiseManager) {
   @inline
   private def processControlEvents(iter: Iterable[ControlPayload]): Unit = {
     iter.foreach {
-      case p:PromisePayload =>
+      case p: PromisePayload =>
         promiseManager.consume(p)
       case other =>
-        //skip for now
+      //skip for now
     }
   }
 }
