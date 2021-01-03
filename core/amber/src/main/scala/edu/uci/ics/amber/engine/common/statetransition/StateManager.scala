@@ -53,7 +53,7 @@ class StateManager[T](stateTransitionGraph: Map[T, Set[T]], initialState: T) {
     if (!state.isInstanceOf[IntermediateState]) {
       stateStack.push(state)
     }
-    if (!stateTransitionGraph.getOrElse(state, Set()).contains(state)) {
+    if (!stateTransitionGraph.getOrElse(currentState, Set()).contains(state)) {
       throw InvalidTransitionException(s"cannot transit from $currentState to $state")
     }
     currentState = state
