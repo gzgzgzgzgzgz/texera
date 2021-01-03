@@ -3,7 +3,7 @@ package edu.uci.ics.amber.engine.architecture.principal
 import edu.uci.ics.amber.clustering.ClusterListener.GetAvailableNodeAddresses
 import edu.uci.ics.amber.engine.architecture.breakpoint.FaultedTuple
 import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.GlobalBreakpoint
-import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.ActorLayer
+import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.WorkerLayer
 import edu.uci.ics.amber.engine.architecture.linksemantics.LinkStrategy
 import edu.uci.ics.amber.engine.architecture.worker.{WorkerState, WorkerStatistics}
 import edu.uci.ics.amber.engine.common.amberexception.WorkflowRuntimeException
@@ -110,7 +110,7 @@ class Principal(val metadata: OpExecConfig)
   }
   val errorLogger = WorkflowLogger(errorLogAction)
   val tau: FiniteDuration = Constants.defaultTau
-  var workerLayers: Array[ActorLayer] = _
+  var workerLayers: Array[WorkerLayer] = _
   var workerEdges: Array[LinkStrategy] = _
   var layerDependencies: mutable.HashMap[String, mutable.HashSet[String]] = _
   var workerStateMap: mutable.AnyRefMap[ActorRef, WorkerState.Value] = _
@@ -160,29 +160,8 @@ class Principal(val metadata: OpExecConfig)
   }
 
   private def setWorkerState(worker: ActorRef, state: WorkerState.Value): Boolean = {
-    assert(workerStateMap.contains(worker))
-    //only set when state changes.
-    if (workerStateMap(worker) != state) {
-      if (WorkerState.ValidTransitions(workerStateMap(worker)).contains(state)) {
-        workerStateMap(worker) = state
-      } else if (WorkerState.SkippedTransitions(workerStateMap(worker)).contains(state)) {
-        logger.info(
-          "Skipped worker state transition for worker{} from {} to {}",
-          worker,
-          workerStateMap(worker),
-          state
-        )
-        workerStateMap(worker) = state
-      } else {
-        logger.error(
-          "Invalid worker state transition for worker{} from {} to {}",
-          worker,
-          workerStateMap(worker),
-          state
-        )
-      }
-      true
-    } else false
+    workerStateMap(worker) = state
+    true
   }
 
   final def whenAllUncompletedWorkersBecome(state: WorkerState.Value): Boolean =
@@ -657,12 +636,12 @@ class Principal(val metadata: OpExecConfig)
   final def paused: Receive = {
     routeActorRefRelatedMessages orElse [Any, Unit] {
       case KillAndRecover =>
-        workerLayers.foreach { x =>
-          x.layer(0) ! Reset(x.getFirstMetadata, Seq(receivedRecoveryInformation(x.tagForFirst)))
-          workerStateMap(x.layer(0)) = WorkerState.Ready
-        }
-        sender ! Ack
-        context.become(pausing)
+//        workerLayers.foreach { x =>
+//          x.layer(0) ! Reset(x.getFirstMetadata, Seq(receivedRecoveryInformation(x.tagForFirst)))
+//          workerStateMap(x.layer(0)) = WorkerState.Ready
+//        }
+//        sender ! Ack
+//        context.become(pausing)
       case RecoveryPacket(amberTag, seq1, seq2) =>
         receivedRecoveryInformation(amberTag) = receivedRecoveryInformation(amberTag)
       case Resume =>
@@ -708,16 +687,16 @@ class Principal(val metadata: OpExecConfig)
   final def completed: Receive = {
     routeActorRefRelatedMessages orElse [Any, Unit] {
       case KillAndRecover =>
-        workerLayers.foreach { x =>
-          if (receivedRecoveryInformation.contains(x.tagForFirst)) {
-            x.layer(0) ! Reset(x.getFirstMetadata, Seq(receivedRecoveryInformation(x.tagForFirst)))
-          } else {
-            x.layer(0) ! Reset(x.getFirstMetadata, Seq())
-          }
-          workerStateMap(x.layer(0)) = WorkerState.Ready
-        }
-        sender ! Ack
-        context.become(pausing)
+//        workerLayers.foreach { x =>
+//          if (receivedRecoveryInformation.contains(x.tagForFirst)) {
+//            x.layer(0) ! Reset(x.getFirstMetadata, Seq(receivedRecoveryInformation(x.tagForFirst)))
+//          } else {
+//            x.layer(0) ! Reset(x.getFirstMetadata, Seq())
+//          }
+//          workerStateMap(x.layer(0)) = WorkerState.Ready
+//        }
+//        sender ! Ack
+//        context.become(pausing)
       case RecoveryPacket(amberTag, seq1, seq2) =>
         receivedRecoveryInformation(amberTag) = (seq1, seq2)
       case QueryStatistics =>
@@ -762,16 +741,16 @@ class Principal(val metadata: OpExecConfig)
 
   final override def receive: Receive = {
     routeActorRefRelatedMessages orElse [Any, Unit] {
-      case AckedPrincipalInitialization(prev: Array[(OpExecConfig, ActorLayer)]) =>
+      case AckedPrincipalInitialization(prev: Array[(OpExecConfig, WorkerLayer)]) =>
         workerLayers = metadata.topology.layers
         workerEdges = metadata.topology.links
         val all = availableNodes
         if (workerEdges.isEmpty) {
           workerLayers.foreach(x => x.build(prev, all))
         } else {
-          val inLinks: Map[ActorLayer, Set[ActorLayer]] =
+          val inLinks: Map[WorkerLayer, Set[WorkerLayer]] =
             workerEdges.groupBy(x => x.to).map(x => (x._1, x._2.map(_.from).toSet))
-          var currentLayer: Iterable[ActorLayer] =
+          var currentLayer: Iterable[WorkerLayer] =
             workerEdges.filter(x => workerEdges.forall(_.to != x.from)).map(_.from)
           currentLayer.foreach(x => x.build(prev, all))
           currentLayer = inLinks.filter(x => x._2.forall(_.isBuilt)).keys

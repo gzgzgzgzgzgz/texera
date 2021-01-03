@@ -33,7 +33,7 @@ trait PauseHandler extends PromiseHandler {
         dataProcessor.appendElement(DummyInput())
       }
       p.map { res =>
-        // workerStateManager.transitTo(Paused)
+        //workerStateManager.transitTo(Paused)
         returning()
       }
   }

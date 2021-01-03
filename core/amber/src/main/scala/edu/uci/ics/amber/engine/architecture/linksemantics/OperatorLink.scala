@@ -1,6 +1,6 @@
 package edu.uci.ics.amber.engine.architecture.linksemantics
 
-import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.ActorLayer
+import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.WorkerLayer
 import edu.uci.ics.amber.engine.common.ambermessage.PrincipalMessage.{GetInputLayer, GetOutputLayer}
 import edu.uci.ics.amber.engine.common.ambertag.LinkTag
 import edu.uci.ics.amber.engine.common.{
@@ -24,8 +24,8 @@ class OperatorLink(val from: (OpExecConfig, ActorRef), val to: (OpExecConfig, Ac
   var linkStrategy: LinkStrategy = _
   lazy val tag: LinkTag = linkStrategy.tag
   def link()(implicit timeout: Timeout, ec: ExecutionContext): Unit = {
-    val sender = Await.result(from._2 ? GetOutputLayer, timeout.duration).asInstanceOf[ActorLayer]
-    val receiver = Await.result(to._2 ? GetInputLayer, timeout.duration).asInstanceOf[ActorLayer]
+    val sender = Await.result(from._2 ? GetOutputLayer, timeout.duration).asInstanceOf[WorkerLayer]
+    val receiver = Await.result(to._2 ? GetInputLayer, timeout.duration).asInstanceOf[WorkerLayer]
     val inputNum = to._1.getInputNum(from._1.tag)
     if (linkStrategy == null) {
       //TODO: use type matching to generate a 'smarter' strategy based on the operators

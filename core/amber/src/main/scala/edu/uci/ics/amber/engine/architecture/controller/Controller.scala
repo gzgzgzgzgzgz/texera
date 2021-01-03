@@ -17,11 +17,7 @@ import edu.uci.ics.amber.engine.architecture.controller.ControllerEvent.{
 }
 import edu.uci.ics.amber.engine.architecture.deploysemantics.deploystrategy.OneOnEach
 import edu.uci.ics.amber.engine.architecture.deploysemantics.deploymentfilter.FollowPrevious
-import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.{
-  ActorLayer,
-  GeneratorWorkerLayer,
-  ProcessorWorkerLayer
-}
+import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.WorkerLayer
 import edu.uci.ics.amber.engine.faulttolerance.materializer.{
   HashBasedMaterializer,
   OutputMaterializer
@@ -298,7 +294,7 @@ class Controller(
     val scanGen: Int => ISourceOperatorExecutor = i =>
       new HDFSFolderScanSourceOperatorExecutor(Constants.remoteHDFSPath, path + "/" + i, '|', null)
     val lastLayer = topology.layers.last
-    val materializerLayer = new ProcessorWorkerLayer(
+    val materializerLayer = new WorkerLayer(
       layerTag,
       i => new HashBasedMaterializer(path, i, hashFunc, numWorkers),
       numWorkers,
@@ -312,7 +308,7 @@ class Controller(
       Constants.defaultBatchSize,
       0
     )
-    val scanLayer = new GeneratorWorkerLayer(
+    val scanLayer = new WorkerLayer(
       LayerTag(to.tag, "from_checkpoint"),
       scanGen,
       topology.layers.last.numWorkers,
@@ -559,7 +555,7 @@ class Controller(
                     workflow.operators(x),
                     Await
                       .result(principalBiMap.get(x) ? GetOutputLayer, 5.seconds)
-                      .asInstanceOf[ActorLayer]
+                      .asInstanceOf[WorkerLayer]
                   )
                 )
             )
