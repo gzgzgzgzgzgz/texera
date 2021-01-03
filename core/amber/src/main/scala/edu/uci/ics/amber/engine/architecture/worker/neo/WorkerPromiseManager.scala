@@ -13,7 +13,7 @@ class WorkerPromiseManager(
     val controlOutputPort: ControlOutputPort,
     val pauseManager: PauseManager,
     val dataProcessor: DataProcessor,
-    val workerStateManager:WorkerStateManager
+    val workerStateManager: WorkerStateManager
 ) extends PromiseManager(selfID, controlOutputPort)
     with PauseHandler {
 
