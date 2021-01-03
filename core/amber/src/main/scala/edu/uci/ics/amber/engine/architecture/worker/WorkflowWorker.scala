@@ -172,6 +172,7 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
 
   def oldControlMessageHandler: Receive = {
     case Start =>
+      sender ! Ack
       if (workerStateManager.getCurrentState != Ready) {
         logger.info(
           s"unexpected Start message when worker is in ${workerStateManager.getCurrentState}"
