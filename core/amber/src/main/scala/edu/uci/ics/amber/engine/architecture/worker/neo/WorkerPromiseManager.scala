@@ -6,12 +6,14 @@ import edu.uci.ics.amber.engine.architecture.worker.neo.promisehandlers.PauseHan
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.ExecutionPaused
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 import edu.uci.ics.amber.engine.common.promise.{PromiseInvocation, PromiseManager, WorkflowPromise}
+import edu.uci.ics.amber.engine.common.statetransition.WorkerStateManager
 
 class WorkerPromiseManager(
     val selfID: ActorVirtualIdentity,
     val controlOutputPort: ControlOutputPort,
     val pauseManager: PauseManager,
-    val dataProcessor: DataProcessor
+    val dataProcessor: DataProcessor,
+    val workerStateManager:WorkerStateManager
 ) extends PromiseManager(selfID, controlOutputPort)
     with PauseHandler {
 

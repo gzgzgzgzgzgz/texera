@@ -1,5 +1,6 @@
 package edu.uci.ics.amber.engine.common.statetransition
 
+import edu.uci.ics.amber.engine.common.statetransition.StateManager.IntermediateState
 import edu.uci.ics.amber.engine.common.statetransition.WorkerStateManager._
 
 object WorkerStateManager{
@@ -8,9 +9,9 @@ object WorkerStateManager{
   case object Ready extends WorkerState
   case object Running extends WorkerState
   case object Paused extends WorkerState
-  case object Pausing extends WorkerState
+  case object Pausing extends WorkerState with IntermediateState
   case object Completed extends WorkerState
-  case object Recovering extends WorkerState
+  case object Recovering extends WorkerState with IntermediateState
 
 }
 
@@ -24,5 +25,9 @@ class WorkerStateManager extends StateManager[WorkerState](Map(
   Recovering -> Set(UnInitialized, Ready, Running, Pausing, Paused, Completed)
 ),
   UnInitialized) {
+
+  private var isStarted = false
+
+
 
 }
