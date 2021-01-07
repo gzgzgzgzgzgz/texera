@@ -30,8 +30,8 @@ class BatchToTupleConverterSpec extends AnyFlatSpec with MockFactory {
       (mockInternalQueue.appendElement _).expects(EndOfAllMarker())
     }
     batchToTupleConverter.registerInput(fakeID, 0)
-    batchToTupleConverter.processDataEvents(fakeID, Iterable(inputBatch))
-    batchToTupleConverter.processDataEvents(fakeID, Iterable(EndOfUpstream()))
+    batchToTupleConverter.processDataPayload(fakeID, Iterable(inputBatch))
+    batchToTupleConverter.processDataPayload(fakeID, Iterable(EndOfUpstream()))
   }
 
   "tuple producer" should "be aware of upstream change" in {
@@ -56,12 +56,12 @@ class BatchToTupleConverterSpec extends AnyFlatSpec with MockFactory {
     val second = NamedActorVirtualIdentity("second upstream")
     batchToTupleConverter.registerInput(first, 0)
     batchToTupleConverter.registerInput(second, 1)
-    batchToTupleConverter.processDataEvents(first, Iterable(inputBatchFromUpstream1))
-    batchToTupleConverter.processDataEvents(
+    batchToTupleConverter.processDataPayload(first, Iterable(inputBatchFromUpstream1))
+    batchToTupleConverter.processDataPayload(
       second,
       Iterable(inputBatchFromUpstream2, EndOfUpstream())
     )
-    batchToTupleConverter.processDataEvents(first, Iterable(EndOfUpstream()))
+    batchToTupleConverter.processDataPayload(first, Iterable(EndOfUpstream()))
 
   }
 

@@ -22,9 +22,9 @@ class ControlOutputPort(selfID: ActorVirtualIdentity, networkSenderActor: Networ
     extends LazyLogging {
   private val idToSequenceNums = new mutable.AnyRefMap[ActorVirtualIdentity, AtomicLong]()
 
-  def sendTo(to: ActorVirtualIdentity, event: ControlPayload): Unit = {
+  def sendTo(to: ActorVirtualIdentity, payload: ControlPayload): Unit = {
     val seqNum = idToSequenceNums.getOrElseUpdate(to, new AtomicLong()).getAndIncrement()
-    val msg = WorkflowControlMessage(selfID, seqNum, event)
+    val msg = WorkflowControlMessage(selfID, seqNum, payload)
     logger.info(s"send $msg to $to")
     networkSenderActor ! SendRequest(to, msg)
   }

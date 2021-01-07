@@ -46,8 +46,8 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
   }
 
   // process one promise message.
-  def execute(event: PromisePayload): Unit = {
-    event match {
+  def execute(payload: PromisePayload): Unit = {
+    payload match {
       // handle return value
       case ret: ReturnPayload =>
         // if the return value corresponds to one of the
@@ -82,7 +82,10 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
         }
 
       // handle root synchronous promise
-      case PromiseInvocation(ctx: RootPromiseContext, call: SynchronizedInvocation) =>
+      case PromiseInvocation(
+            ctx: RootPromiseContext,
+            call: PromiseBody[_] with SynchronizedInvocation
+          ) =>
         if (syncPromiseRoot == null) {
           // if there is no other executing synchronous promise,
           // execute this one
@@ -90,11 +93,14 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
           invokePromise(ctx, call)
         } else {
           // otherwise, enqueue it
-          queuedInvocations.enqueue(event)
+          queuedInvocations.enqueue(payload)
         }
 
       // handle synchronous promise created by other promise
-      case PromiseInvocation(ctx: ChildPromiseContext, call: SynchronizedInvocation) =>
+      case PromiseInvocation(
+            ctx: ChildPromiseContext,
+            call: PromiseBody[_] with SynchronizedInvocation
+          ) =>
         if (syncPromiseRoot == null || ctx.root == syncPromiseRoot) {
           // if there is no other executing synchronous promise,
           // or this promise has same root context (chain of promises),
@@ -103,7 +109,7 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
           invokePromise(ctx, call)
         } else {
           // otherwise, enqueue it
-          queuedInvocations.enqueue(event)
+          queuedInvocations.enqueue(payload)
         }
 
       // trivial case

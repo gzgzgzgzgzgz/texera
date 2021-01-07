@@ -15,7 +15,7 @@ object ControlInputPort {
   ) extends WorkflowMessage
 }
 
-class ControlInputPort(promiseManager: PromiseManager) {
+class ControlInputPort(promiseManager: PromiseManager) extends LazyLogging {
   private val idToOrderingEnforcers =
     new mutable.AnyRefMap[VirtualIdentity, OrderingEnforcer[ControlPayload]]()
 
@@ -27,7 +27,7 @@ class ControlInputPort(promiseManager: PromiseManager) {
       msg.payload
     ) match {
       case Some(iterable) =>
-        processControlEvents(iterable)
+        processControlPayload(iterable)
       case None =>
         // discard duplicate
         println(s"receive duplicated: ${msg.payload}")
@@ -35,11 +35,12 @@ class ControlInputPort(promiseManager: PromiseManager) {
   }
 
   @inline
-  private def processControlEvents(iter: Iterable[ControlPayload]): Unit = {
+  private def processControlPayload(iter: Iterable[ControlPayload]): Unit = {
     iter.foreach {
       case p: PromisePayload =>
         promiseManager.execute(p)
       case other =>
+        logger.info(s"received control message which we cannot handle: $other")
       //skip for now
     }
   }
