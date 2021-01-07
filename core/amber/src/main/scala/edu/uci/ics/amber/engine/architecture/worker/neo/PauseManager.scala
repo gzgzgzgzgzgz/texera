@@ -62,7 +62,7 @@ class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
     }
   }
 
-  def isPaused: Boolean = isPauseSet() && dpThreadBlocker != null
+  def isPaused: Boolean = isPauseSet() && dpThreadBlocker != null && !dpThreadBlocker.isDone
 
   /** resume functionality
     * only actor calls this function for now

@@ -31,6 +31,7 @@ import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 import edu.uci.ics.amber.engine.common.promise.{
   PromiseContext,
+  PromiseHandlerInitializer,
   PromiseInvocation,
   PromiseManager,
   ReturnPayload
@@ -56,7 +57,8 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
   lazy val dataOutputPort: DataOutputPort = wire[DataOutputPort]
   lazy val batchProducer: TupleToBatchConverter = wire[TupleToBatchConverter]
   lazy val tupleProducer: BatchToTupleConverter = wire[BatchToTupleConverter]
-  lazy val promiseManager: WorkerPromiseManager = wire[WorkerPromiseManager]
+  lazy val promiseHandlerInitializer: PromiseHandlerInitializer =
+    wire[WorkerPromiseHandlerInitializer]
 
   val receivedFaultedTupleIds: mutable.HashSet[Long] = new mutable.HashSet[Long]()
   val receivedRecoveryInformation: mutable.HashSet[(Long, Long)] =

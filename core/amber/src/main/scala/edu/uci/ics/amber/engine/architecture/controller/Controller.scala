@@ -95,9 +95,8 @@ import edu.uci.ics.amber.engine.architecture.common.WorkflowActor
 import edu.uci.ics.amber.error.WorkflowRuntimeError
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.RegisterActorRef
-import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerPromiseManager
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
-import edu.uci.ics.amber.engine.common.promise.PromiseManager
+import edu.uci.ics.amber.engine.common.promise.{PromiseHandlerInitializer, PromiseManager}
 
 import collection.JavaConverters._
 import scala.collection.mutable
@@ -244,7 +243,7 @@ class Controller(
   implicit val ec: ExecutionContext = context.dispatcher
   implicit val timeout: Timeout = 5.seconds
 
-  override lazy val promiseManager: PromiseManager = wire[PromiseManager]
+  lazy val promiseHandlerInitializer = wire[PromiseHandlerInitializer]
 
   private def errorLogAction(err: WorkflowRuntimeError): Unit = {
     Logger(

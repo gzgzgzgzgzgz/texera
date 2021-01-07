@@ -15,7 +15,7 @@ import edu.uci.ics.amber.engine.architecture.messaginglayer.{
 }
 import edu.uci.ics.amber.engine.common.amberexception.WorkflowRuntimeException
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
-import edu.uci.ics.amber.engine.common.promise.PromiseManager
+import edu.uci.ics.amber.engine.common.promise.{PromiseHandlerInitializer, PromiseManager}
 import edu.uci.ics.amber.error.WorkflowRuntimeError
 
 abstract class WorkflowActor(val identifier: ActorVirtualIdentity)
@@ -28,8 +28,11 @@ abstract class WorkflowActor(val identifier: ActorVirtualIdentity)
   )
   lazy val controlInputPort: ControlInputPort = wire[ControlInputPort]
   lazy val controlOutputPort: ControlOutputPort = wire[ControlOutputPort]
+  lazy val promiseManager: PromiseManager = wire[PromiseManager]
+  val promiseHandlerInitializer: PromiseHandlerInitializer
 
-  val promiseManager: PromiseManager
+  // register all handlers to the promise manager
+  promiseManager.setPromiseHandlers(promiseHandlerInitializer.getPromiseHandlers)
 
   def routeActorRefRelatedMessages: Receive = {
     case QueryActorRef(id, replyTo) =>

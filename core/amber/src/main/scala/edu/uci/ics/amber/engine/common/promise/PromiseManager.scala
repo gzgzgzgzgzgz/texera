@@ -6,6 +6,7 @@ import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlOutputPort
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 
 import scala.collection.mutable
+import scala.reflect.ClassTag
 
 /** This is the central unit of handling promises in actors.
   * @param selfID
@@ -38,11 +39,11 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
   // the root context for the current synchronous promise.
   protected var syncPromiseRoot: PromiseContext = _
 
-  // empty promise handler.
-  // default behavior: discard
-  protected var promiseHandler: PartialFunction[PromiseBody[_], Unit] = {
-    case promise =>
-      logger.info(s"discarding $promise")
+  // all the promise handlers
+  protected var promiseHandler: PartialFunction[PromiseBody[_], Unit] = _
+
+  def setPromiseHandlers(handlers: PartialFunction[PromiseBody[_], Unit]): Unit = {
+    promiseHandler = handlers
   }
 
   // process one promise message.
@@ -131,7 +132,7 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
   }
 
   // send a control message to another actor, and keep the handle.
-  def schedule[T](cmd: PromiseBody[T], on: ActorVirtualIdentity = selfID): Promise[T] = {
+  def schedule[T](cmd: PromiseBody[T], on: ActorVirtualIdentity): Promise[T] = {
     val ctx = mkPromiseContext()
     promiseID += 1
     controlOutputPort.sendTo(on, PromiseInvocation(ctx, cmd))
@@ -141,7 +142,7 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
   }
 
   // send a grouped control message to other actors, and keep the handle.
-  def schedule[T](seq: (PromiseBody[T], ActorVirtualIdentity)*): Promise[Seq[T]] = {
+  def schedule[T: ClassTag](seq: (PromiseBody[T], ActorVirtualIdentity)*): Promise[Seq[T]] = {
     val promise = WorkflowPromise[Seq[T]](promiseContext)
     if (seq.isEmpty) {
       // if the sequence is empty, resolve the promise immediately
@@ -177,6 +178,14 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
       )
       exitCurrentPromise()
     }
+  }
+
+  def createLocalPromise[T](): WorkflowPromise[T] = {
+    val ctx = mkPromiseContext()
+    promiseID += 1
+    val promise = WorkflowPromise[T](promiseContext)
+    unCompletedPromises(ctx) = promise
+    promise
   }
 
   @inline
