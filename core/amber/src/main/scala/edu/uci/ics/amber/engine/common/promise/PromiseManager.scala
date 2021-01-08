@@ -183,7 +183,7 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
     promiseID += 1
     val promise = WorkflowPromise[T](promiseContext)
     unCompletedPromises(ctx) = promise
-    (promise,ctx)
+    (promise, ctx)
   }
 
   @inline

@@ -11,7 +11,13 @@ import edu.uci.ics.amber.engine.architecture.worker.neo.PauseManager.{NoPause, P
 import edu.uci.ics.amber.engine.common.WorkflowLogger
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.ExecutionPaused
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
-import edu.uci.ics.amber.engine.common.promise.{PromiseCompleted, PromiseContext, PromiseManager, ReturnPayload, WorkflowPromise}
+import edu.uci.ics.amber.engine.common.promise.{
+  PromiseCompleted,
+  PromiseContext,
+  PromiseManager,
+  ReturnPayload,
+  WorkflowPromise
+}
 
 object PauseManager {
   final val NoPause = 0
