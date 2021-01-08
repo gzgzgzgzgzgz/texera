@@ -103,12 +103,11 @@ class Principal(val metadata: OpExecConfig)
   lazy val promiseHandlerInitializer = wire[PromiseHandlerInitializer]
 
   private def errorLogAction(err: WorkflowRuntimeError): Unit = {
-    Logger(
-      s"Principal-${metadata.tag.getGlobalIdentity}-Logger"
-    ).error(err.convertToMap().mkString(" | "))
     context.parent ! LogErrorToFrontEnd(err)
   }
-  val errorLogger = WorkflowLogger(errorLogAction)
+  val principalLogger = WorkflowLogger(s"Principal-${metadata.tag.getGlobalIdentity}-Logger")
+  principalLogger.setErrorLogAction(errorLogAction)
+
   val tau: FiniteDuration = Constants.defaultTau
   var workerLayers: Array[ActorLayer] = _
   var workerEdges: Array[LinkStrategy] = _
@@ -370,14 +369,14 @@ class Principal(val metadata: OpExecConfig)
           }
         } catch {
           case e: WorkflowRuntimeException =>
-            errorLogger.log(e.runtimeError)
+            principalLogger.logError(e.runtimeError)
           case e: Exception =>
             val error = WorkflowRuntimeError(
               e.getMessage(),
               "Principal:Running:WorkerMessage.ReportState",
               Map("trace" -> e.getStackTrace.mkString("\n"))
             )
-            errorLogger.log(error)
+            principalLogger.logError(error)
         }
 
       case WorkerMessage.ReportStatistics(statistics) =>
