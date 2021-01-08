@@ -8,6 +8,7 @@ import com.twitter.util.Promise
 import com.typesafe.scalalogging.LazyLogging
 import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlOutputPort
 import edu.uci.ics.amber.engine.architecture.worker.neo.PauseManager.{NoPause, Paused}
+import edu.uci.ics.amber.engine.common.WorkflowLogger
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.ExecutionPaused
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
 import edu.uci.ics.amber.engine.common.promise.{
@@ -22,7 +23,9 @@ object PauseManager {
   final val Paused = 1
 }
 
-class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
+class PauseManager(controlOutputPort: ControlOutputPort) {
+
+  protected val logger: WorkflowLogger = WorkflowLogger("PauseManager")
 
   // current pause privilege level
   private val pausePrivilegeLevel = new AtomicInteger(PauseManager.NoPause)
@@ -70,7 +73,7 @@ class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
     */
   def resume(): Unit = {
     if (pausePrivilegeLevel.get() == NoPause) {
-      logger.info("already resumed")
+      logger.logInfo("already resumed")
       return
     }
     // only privilege level >= current pause privilege level can resume the worker
@@ -108,9 +111,9 @@ class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
       promiseFromActorThread = null
     }
     // thread blocks here
-    logger.info(s"dp thread blocked")
+    logger.logInfo(s"dp thread blocked")
     this.dpThreadBlocker.get
-    logger.info(s"dp thread resumed")
+    logger.logInfo(s"dp thread resumed")
   }
 
   /** unblock DP thread by resolving the CompletableFuture
@@ -118,7 +121,7 @@ class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
   private[this] def unblockDPThread(): Unit = {
     // If dp thread suspended, release it
     if (dpThreadBlocker != null) {
-      logger.info("resume the worker by complete the future")
+      logger.logInfo("resume the worker by complete the future")
       this.dpThreadBlocker.complete(null)
     }
   }

@@ -3,6 +3,7 @@ package edu.uci.ics.amber.engine.common.promise
 import com.twitter.util.{Future, Promise}
 import com.typesafe.scalalogging.LazyLogging
 import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlOutputPort
+import edu.uci.ics.amber.engine.common.WorkflowLogger
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 
 import scala.collection.mutable
@@ -12,8 +13,7 @@ import scala.reflect.ClassTag
   * @param selfID
   * @param controlOutputPort
   */
-class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOutputPort)
-    extends LazyLogging {
+class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOutputPort) {
 
   // the monotonically increasing identifier
   // for promises created by this promise manager
@@ -133,11 +133,8 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
 
   // send a control message to another actor, and keep the handle.
   def schedule[T](cmd: PromiseBody[T], on: ActorVirtualIdentity): Promise[T] = {
-    val ctx = mkPromiseContext()
-    promiseID += 1
-    controlOutputPort.sendTo(on, PromiseInvocation(ctx, cmd))
-    val promise = WorkflowPromise[T](promiseContext)
-    unCompletedPromises(ctx) = promise
+    val promise = createPromise[T]()
+    controlOutputPort.sendTo(on, PromiseInvocation(promise.ctx, cmd))
     promise
   }
 
@@ -180,7 +177,7 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
     }
   }
 
-  def createLocalPromise[T](): WorkflowPromise[T] = {
+  def createPromise[T](): WorkflowPromise[T] = {
     val ctx = mkPromiseContext()
     promiseID += 1
     val promise = WorkflowPromise[T](promiseContext)
