@@ -30,14 +30,14 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
   // context for current executing promise.
   protected var promiseContext: PromiseContext = _
 
-  // synchronous promises will be enqueued.
-  protected val queuedInvocations = new mutable.Queue[PromisePayload]()
-
-  // save all synchronous promises with the same root.
-  protected val ongoingSyncPromises = new mutable.HashSet[PromiseContext]()
-
-  // the root context for the current synchronous promise.
-  protected var syncPromiseRoot: PromiseContext = _
+//  // synchronous promises will be enqueued.
+//  protected val queuedInvocations = new mutable.Queue[PromisePayload]()
+//
+//  // save all synchronous promises with the same root.
+//  protected val ongoingSyncPromises = new mutable.HashSet[PromiseContext]()
+//
+//  // the root context for the current synchronous promise.
+//  protected var syncPromiseRoot: PromiseContext = _
 
   // all the promise handlers
   protected var promiseHandler: PartialFunction[PromiseBody[_], Unit] = _
@@ -82,38 +82,38 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
           }
         }
 
-      // handle root synchronous promise
-      case PromiseInvocation(
-            ctx: RootPromiseContext,
-            call: PromiseBody[_] with SynchronizedInvocation
-          ) =>
-        if (syncPromiseRoot == null) {
-          // if there is no other executing synchronous promise,
-          // execute this one
-          registerSyncPromise(ctx, ctx)
-          invokePromise(ctx, call)
-        } else {
-          // otherwise, enqueue it
-          queuedInvocations.enqueue(payload)
-        }
+//      // handle root synchronous promise
+//      case PromiseInvocation(
+//            ctx: RootPromiseContext,
+//            call: PromiseBody[_] with SynchronizedInvocation
+//          ) =>
+//        if (syncPromiseRoot == null) {
+//          // if there is no other executing synchronous promise,
+//          // execute this one
+//          registerSyncPromise(ctx, ctx)
+//          invokePromise(ctx, call)
+//        } else {
+//          // otherwise, enqueue it
+//          queuedInvocations.enqueue(payload)
+//        }
+//
+//      // handle synchronous promise created by other promise
+//      case PromiseInvocation(
+//            ctx: ChildPromiseContext,
+//            call: PromiseBody[_] with SynchronizedInvocation
+//          ) =>
+//        if (syncPromiseRoot == null || ctx.root == syncPromiseRoot) {
+//          // if there is no other executing synchronous promise,
+//          // or this promise has same root context (chain of promises),
+//          // execute this one.
+//          registerSyncPromise(ctx.root, ctx)
+//          invokePromise(ctx, call)
+//        } else {
+//          // otherwise, enqueue it
+//          queuedInvocations.enqueue(payload)
+//        }
 
-      // handle synchronous promise created by other promise
-      case PromiseInvocation(
-            ctx: ChildPromiseContext,
-            call: PromiseBody[_] with SynchronizedInvocation
-          ) =>
-        if (syncPromiseRoot == null || ctx.root == syncPromiseRoot) {
-          // if there is no other executing synchronous promise,
-          // or this promise has same root context (chain of promises),
-          // execute this one.
-          registerSyncPromise(ctx.root, ctx)
-          invokePromise(ctx, call)
-        } else {
-          // otherwise, enqueue it
-          queuedInvocations.enqueue(payload)
-        }
-
-      // trivial case
+      // normal case
       case p: PromiseInvocation =>
         // set context
         promiseContext = p.context
@@ -127,8 +127,8 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
         }
     }
 
-    // execute queued sync promises
-    tryInvokeNextSyncPromise()
+//    // execute queued sync promises
+//    tryInvokeNextSyncPromise()
   }
 
   // send a control message to another actor, and keep the handle.
@@ -188,27 +188,27 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
 
   @inline
   private def exitCurrentPromise(): Unit = {
-    if (ongoingSyncPromises.contains(promiseContext)) {
-      ongoingSyncPromises.remove(promiseContext)
-    }
+//    if (ongoingSyncPromises.contains(promiseContext)) {
+//      ongoingSyncPromises.remove(promiseContext)
+//    }
     promiseContext = null
   }
 
-  @inline
-  private def tryInvokeNextSyncPromise(): Unit = {
-    if (ongoingSyncPromises.isEmpty) {
-      syncPromiseRoot = null
-      if (queuedInvocations.nonEmpty) {
-        execute(queuedInvocations.dequeue())
-      }
-    }
-  }
+//  @inline
+//  private def tryInvokeNextSyncPromise(): Unit = {
+//    if (ongoingSyncPromises.isEmpty) {
+//      syncPromiseRoot = null
+//      if (queuedInvocations.nonEmpty) {
+//        execute(queuedInvocations.dequeue())
+//      }
+//    }
+//  }
 
-  @inline
-  private def registerSyncPromise(rootCtx: RootPromiseContext, ctx: PromiseContext): Unit = {
-    syncPromiseRoot = rootCtx
-    ongoingSyncPromises.add(ctx)
-  }
+//  @inline
+//  private def registerSyncPromise(rootCtx: RootPromiseContext, ctx: PromiseContext): Unit = {
+//    syncPromiseRoot = rootCtx
+//    ongoingSyncPromises.add(ctx)
+//  }
 
   @inline
   protected def mkPromiseContext(): PromiseContext = {
