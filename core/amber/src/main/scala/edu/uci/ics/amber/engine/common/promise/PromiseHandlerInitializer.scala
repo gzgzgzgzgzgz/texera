@@ -36,7 +36,7 @@ class PromiseHandlerInitializer(promiseManager: PromiseManager) extends LazyLogg
     promiseManager.returning()
   }
 
-  def createLocalPromise[T](): WorkflowPromise[T] = {
+  def createPromise[T]():(WorkflowPromise[T], PromiseContext) = {
     promiseManager.createPromise()
   }
 

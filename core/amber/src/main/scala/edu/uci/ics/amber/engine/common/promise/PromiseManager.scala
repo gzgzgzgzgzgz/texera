@@ -133,11 +133,8 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
 
   // send a control message to another actor, and keep the handle.
   def schedule[T](cmd: PromiseBody[T], on: ActorVirtualIdentity): Promise[T] = {
-    val ctx = mkPromiseContext()
-    promiseID += 1
+    val (promise, ctx) = createPromise[T]()
     controlOutputPort.sendTo(on, PromiseInvocation(ctx, cmd))
-    val promise = WorkflowPromise[T](promiseContext)
-    unCompletedPromises(ctx) = promise
     promise
   }
 
@@ -180,12 +177,13 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
     }
   }
 
-  def createPromise[T](): WorkflowPromise[T] = {
+  @inline
+  def createPromise[T](): (WorkflowPromise[T], PromiseContext) = {
     val ctx = mkPromiseContext()
     promiseID += 1
     val promise = WorkflowPromise[T](promiseContext)
     unCompletedPromises(ctx) = promise
-    promise
+    (promise,ctx)
   }
 
   @inline

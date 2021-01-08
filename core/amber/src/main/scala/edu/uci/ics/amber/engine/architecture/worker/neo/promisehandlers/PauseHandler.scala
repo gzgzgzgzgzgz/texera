@@ -21,8 +21,8 @@ trait PauseHandler {
 
   registerHandler {
     case WorkerPause() =>
-      val p = createLocalPromise[ExecutionPaused]()
-      pauseManager.registerPromise(p)
+      val (p, ctx) = createPromise[ExecutionPaused]()
+      pauseManager.registerNotifyContext(ctx)
       pauseManager.pause()
       // if dp thread is blocking on waiting for input tuples:
       if (dataProcessor.isQueueEmpty) {
@@ -30,6 +30,7 @@ trait PauseHandler {
         dataProcessor.appendElement(DummyInput())
       }
       p.map { res =>
+        println("pause actually returned")
         returning()
       }
   }

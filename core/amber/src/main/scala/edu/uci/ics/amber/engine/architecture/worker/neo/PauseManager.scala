@@ -11,12 +11,7 @@ import edu.uci.ics.amber.engine.architecture.worker.neo.PauseManager.{NoPause, P
 import edu.uci.ics.amber.engine.common.WorkflowLogger
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.ExecutionPaused
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
-import edu.uci.ics.amber.engine.common.promise.{
-  PromiseCompleted,
-  PromiseContext,
-  ReturnPayload,
-  WorkflowPromise
-}
+import edu.uci.ics.amber.engine.common.promise.{PromiseCompleted, PromiseContext, PromiseManager, ReturnPayload, WorkflowPromise}
 
 object PauseManager {
   final val NoPause = 0
@@ -33,7 +28,7 @@ class PauseManager(controlOutputPort: ControlOutputPort) {
   // volatile is necessary otherwise main thread cannot notice the change.
   // volatile means read/writes are through memory rather than CPU cache
   @volatile private var dpThreadBlocker: CompletableFuture[Void] = _
-  @volatile private var promiseFromActorThread: WorkflowPromise[ExecutionPaused] = _
+  @volatile private var promiseContextFromActorThread: PromiseContext = _
 
   /** pause functionality
     * both dp thread and actor can call this function
@@ -54,14 +49,14 @@ class PauseManager(controlOutputPort: ControlOutputPort) {
 
   }
 
-  def registerPromise(workflowPromise: WorkflowPromise[ExecutionPaused]): Unit = {
+  def registerNotifyContext(promiseContext: PromiseContext): Unit = {
     if (isPaused) {
       controlOutputPort.sendTo(
         VirtualIdentity.Self,
-        ReturnPayload(workflowPromise.ctx, ExecutionPaused())
+        ReturnPayload(promiseContext, ExecutionPaused())
       )
     } else {
-      promiseFromActorThread = workflowPromise
+      promiseContextFromActorThread = promiseContext
     }
   }
 
@@ -103,12 +98,12 @@ class PauseManager(controlOutputPort: ControlOutputPort) {
     // create a future and wait for its completion
     this.dpThreadBlocker = new CompletableFuture[Void]
     // notify main actor thread
-    if (promiseFromActorThread != null) {
+    if (promiseContextFromActorThread != null) {
       controlOutputPort.sendTo(
         VirtualIdentity.Self,
-        ReturnPayload(promiseFromActorThread.ctx, ExecutionPaused())
+        ReturnPayload(promiseContextFromActorThread, ExecutionPaused())
       )
-      promiseFromActorThread = null
+      promiseContextFromActorThread = null
     }
     // thread blocks here
     logger.logInfo(s"dp thread blocked")
