@@ -18,16 +18,15 @@ import scala.collection.mutable
   * The internal logic can send data messages to other actor without knowing
   * where the actor is and without determining the sequence number.
   */
-class DataOutputPort(selfID: ActorVirtualIdentity, networkSenderActor: NetworkSenderActorRef)
-    extends LazyLogging {
+class DataOutputPort(selfID: ActorVirtualIdentity, networkSenderActor: NetworkSenderActorRef) {
 
   private val idToSequenceNums = new mutable.AnyRefMap[ActorVirtualIdentity, AtomicLong]()
 
-  def sendTo(to: ActorVirtualIdentity, event: DataPayload): Unit = {
+  def sendTo(to: ActorVirtualIdentity, payload: DataPayload): Unit = {
     val msg = WorkflowDataMessage(
       selfID,
       idToSequenceNums.getOrElseUpdate(to, new AtomicLong()).getAndIncrement(),
-      event
+      payload
     )
     networkSenderActor ! SendRequest(to, msg)
   }

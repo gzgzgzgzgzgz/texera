@@ -15,7 +15,7 @@ import edu.uci.ics.amber.engine.common.ambermessage.ControlMessage.LocalBreakpoi
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.ExecutionCompleted
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
 import edu.uci.ics.amber.engine.common.tuple.ITuple
-import edu.uci.ics.amber.engine.common.{IOperatorExecutor, InputExhausted}
+import edu.uci.ics.amber.engine.common.{IOperatorExecutor, InputExhausted, WorkflowLogger}
 
 class DataProcessor( // dependencies:
     operator: IOperatorExecutor, // core logic
@@ -23,9 +23,9 @@ class DataProcessor( // dependencies:
     batchProducer: TupleToBatchConverter, // to send output tuples
     pauseManager: PauseManager // to pause/resume
 ) extends BreakpointSupport
-    with WorkerInternalQueue
-    with LazyLogging { // TODO: make breakpointSupport as a module
+    with WorkerInternalQueue { // TODO: make breakpointSupport as a module
 
+  protected val logger: WorkflowLogger = WorkflowLogger("DataProcessor")
   // dp thread stats:
   // TODO: add another variable for recovery index instead of using the counts below.
   private var inputTupleCount = 0L
@@ -131,7 +131,7 @@ class DataProcessor( // dependencies:
       }
     }
     // Send Completed signal to worker actor.
-    logger.info(s"${operator.toString} completed")
+    logger.logInfo(s"${operator.toString} completed")
     controlOutputChannel.sendTo(VirtualIdentity.Self, ExecutionCompleted())
   }
 

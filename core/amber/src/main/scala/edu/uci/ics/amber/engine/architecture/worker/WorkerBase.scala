@@ -31,7 +31,8 @@ import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 import edu.uci.ics.amber.engine.common.promise.{
   PromiseContext,
-  PromiseInvocation,
+  PromiseHandlerInitializer,
+  ControlInvocation,
   PromiseManager,
   ReturnPayload
 }
@@ -58,7 +59,8 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
   lazy val dataOutputPort: DataOutputPort = wire[DataOutputPort]
   lazy val batchProducer: TupleToBatchConverter = wire[TupleToBatchConverter]
   lazy val tupleProducer: BatchToTupleConverter = wire[BatchToTupleConverter]
-  lazy val promiseManager: WorkerPromiseManager = wire[WorkerPromiseManager]
+  lazy val promiseHandlerInitializer: PromiseHandlerInitializer =
+    wire[WorkerPromiseHandlerInitializer]
   lazy val workerStateManager: WorkerStateManager = wire[WorkerStateManager]
 
   val receivedFaultedTupleIds: mutable.HashSet[Long] = new mutable.HashSet[Long]()
@@ -85,7 +87,7 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
   def onModifyTuple(faultedTuple: FaultedTuple): Unit = {}
 
   def onStart(): Unit = {
-    logger.info(s"$identifier started!")
+    logger.logInfo(s"$identifier started!")
     startTime = System.nanoTime()
     context.parent ! ReportState(WorkerState.Running)
   }
@@ -109,7 +111,7 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
   def onPausing(): Unit = {
     // messagingManager.pauseDataSending()
     // pauseManager.pause()
-    promiseManager.execute(PromiseInvocation(null, WorkerPause()))
+    promiseManager.execute(ControlInvocation(null, WorkerPause()))
     context.become(pausing)
   }
 
@@ -286,12 +288,12 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
 
   final def stashOthers: Receive = {
     case msg =>
-      logger.info("stashing: " + msg)
+      logger.logInfo("stashing: " + msg)
       stash()
   }
 
   final def discardOthers: Receive = {
-    case msg => logger.info(s"discarding: $msg")
+    case msg => logger.logInfo(s"discarding: $msg")
   }
 
   override def receive: Receive = {
@@ -529,7 +531,7 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
 
   def processNewControlMessages: Receive = {
     case msg @ NetworkMessage(id, cmd: WorkflowControlMessage) =>
-      logger.info(s"received ${msg.internalMessage}")
+      logger.logInfo(s"received ${msg.internalMessage}")
       sender ! NetworkAck(id)
       controlInputPort.handleControlMessage(cmd)
       newControlMessageHandler(cmd.payload)
