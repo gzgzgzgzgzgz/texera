@@ -32,8 +32,8 @@ class ControlInputPort(promiseManager: PromiseManager) {
       msg.payload
     ) match {
       case Some(iterable) =>
-        iterable.foreach{
-          p => promiseManager.execute(p)
+        iterable.foreach { p =>
+          promiseManager.execute(p)
         }
       case None =>
         // discard duplicate
