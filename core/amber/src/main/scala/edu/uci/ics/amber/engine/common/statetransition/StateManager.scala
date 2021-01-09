@@ -1,19 +1,33 @@
 package edu.uci.ics.amber.engine.common.statetransition
 
+import edu.uci.ics.amber.engine.common.amberexception.WorkflowRuntimeException
 import edu.uci.ics.amber.engine.common.statetransition.StateManager.{
   IntermediateState,
   InvalidStateException,
   InvalidTransitionException
 }
+import edu.uci.ics.amber.error.WorkflowRuntimeError
 
 import scala.collection.mutable
 
 object StateManager {
   case class InvalidStateException(message: String)
-      extends RuntimeException(message)
+      extends WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          message,
+          Thread.currentThread().getStackTrace.mkString("\n"),
+          Map.empty
+        )
+      )
       with Serializable
   case class InvalidTransitionException(message: String)
-      extends RuntimeException(message)
+      extends WorkflowRuntimeException(
+        WorkflowRuntimeError(
+          message,
+          Thread.currentThread().getStackTrace.mkString("\n"),
+          Map.empty
+        )
+      )
       with Serializable
 
   trait IntermediateState
@@ -28,13 +42,13 @@ class StateManager[T](stateTransitionGraph: Map[T, Set[T]], initialState: T) {
     stateStack.push(initialState)
   }
 
-  def shouldBe(state: T): Unit = {
+  def confirmState(state: T): Unit = {
     if (currentState != state) {
       throw InvalidStateException(s"except state = $state but current state = $currentState")
     }
   }
 
-  def shouldBe(states: T*): Unit = {
+  def confirmState(states: T*): Unit = {
     if (!states.contains(currentState)) {
       throw InvalidStateException(
         s"except state in [${states.mkString(",")}] but current state = $currentState"
