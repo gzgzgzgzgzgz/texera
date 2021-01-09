@@ -4,6 +4,7 @@ import com.twitter.util.{Future, Promise}
 import com.typesafe.scalalogging.LazyLogging
 import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlOutputPort
 import edu.uci.ics.amber.engine.common.WorkflowLogger
+import edu.uci.ics.amber.engine.common.ambermessage.neo.ControlPayload
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 
 import scala.collection.mutable
@@ -40,14 +41,14 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
 //  protected var syncPromiseRoot: PromiseContext = _
 
   // all the promise handlers
-  protected var promiseHandler: PartialFunction[PromiseBody[_], Unit] = _
+  protected var promiseHandler: PartialFunction[ControlCommand[_], Unit] = _
 
-  def setPromiseHandlers(handlers: PartialFunction[PromiseBody[_], Unit]): Unit = {
+  def setPromiseHandlers(handlers: PartialFunction[ControlCommand[_], Unit]): Unit = {
     promiseHandler = handlers
   }
 
   // process one promise message.
-  def execute(payload: PromisePayload): Unit = {
+  def execute(payload: ControlPayload): Unit = {
     payload match {
       // handle return value
       case ret: ReturnPayload =>
@@ -114,7 +115,7 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
 //        }
 
       // normal case
-      case p: PromiseInvocation =>
+      case p: ControlInvocation =>
         // set context
         promiseContext = p.context
         try {
@@ -132,14 +133,14 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
   }
 
   // send a control message to another actor, and keep the handle.
-  def schedule[T](cmd: PromiseBody[T], on: ActorVirtualIdentity): Promise[T] = {
+  def schedule[T](cmd: ControlCommand[T], on: ActorVirtualIdentity): Promise[T] = {
     val (promise, ctx) = createPromise[T]()
-    controlOutputPort.sendTo(on, PromiseInvocation(ctx, cmd))
+    controlOutputPort.sendTo(on, ControlInvocation(ctx, cmd))
     promise
   }
 
   // send a grouped control message to other actors, and keep the handle.
-  def schedule[T: ClassTag](seq: (PromiseBody[T], ActorVirtualIdentity)*): Promise[Seq[T]] = {
+  def schedule[T: ClassTag](seq: (ControlCommand[T], ActorVirtualIdentity)*): Promise[Seq[T]] = {
     val promise = WorkflowPromise[Seq[T]](promiseContext)
     if (seq.isEmpty) {
       // if the sequence is empty, resolve the promise immediately
@@ -152,7 +153,7 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
         case (body, virtualIdentity) =>
           val ctx = mkPromiseContext()
           promiseID += 1
-          controlOutputPort.sendTo(virtualIdentity, PromiseInvocation(ctx, body))
+          controlOutputPort.sendTo(virtualIdentity, ControlInvocation(ctx, body))
       }
     }
     promise
@@ -226,7 +227,7 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
   }
 
   @inline
-  private def invokePromise(ctx: PromiseContext, call: PromiseBody[_]): Unit = {
+  private def invokePromise(ctx: PromiseContext, call: ControlCommand[_]): Unit = {
     promiseContext = ctx
     promiseHandler(call)
   }

@@ -11,20 +11,20 @@ class PromiseHandlerInitializer(promiseManager: PromiseManager) extends LazyLogg
 
   // empty promise handler.
   // default behavior: discard
-  private var promiseHandler: PartialFunction[PromiseBody[_], Unit] = {
+  private var promiseHandler: PartialFunction[ControlCommand[_], Unit] = {
     case promise =>
       logger.info(s"discarding $promise")
   }
 
-  def registerHandler(newPromiseHandler: PartialFunction[PromiseBody[_], Unit]): Unit = {
+  def registerHandler(newPromiseHandler: PartialFunction[ControlCommand[_], Unit]): Unit = {
     promiseHandler = newPromiseHandler orElse promiseHandler
   }
 
-  def schedule[T](cmd: PromiseBody[T], on: ActorVirtualIdentity): Promise[T] = {
+  def schedule[T](cmd: ControlCommand[T], on: ActorVirtualIdentity): Promise[T] = {
     promiseManager.schedule(cmd, on)
   }
 
-  def schedule[T: ClassTag](seq: (PromiseBody[T], ActorVirtualIdentity)*): Promise[Seq[T]] = {
+  def schedule[T: ClassTag](seq: (ControlCommand[T], ActorVirtualIdentity)*): Promise[Seq[T]] = {
     promiseManager.schedule(seq: _*)
   }
 
@@ -40,6 +40,6 @@ class PromiseHandlerInitializer(promiseManager: PromiseManager) extends LazyLogg
     promiseManager.createPromise()
   }
 
-  def getPromiseHandlers: PartialFunction[PromiseBody[_], Unit] = promiseHandler
+  def getPromiseHandlers: PartialFunction[ControlCommand[_], Unit] = promiseHandler
 
 }

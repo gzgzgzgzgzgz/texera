@@ -7,13 +7,13 @@ import edu.uci.ics.amber.engine.architecture.worker.neo.{WorkerPromiseHandlerIni
 import edu.uci.ics.amber.engine.architecture.worker.neo.promisehandlers.PauseHandler.WorkerPause
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.{ExecutionPaused, ReportState}
 import edu.uci.ics.amber.engine.common.promise.{
-  PromiseBody,
+  ControlCommand,
   PromiseCompleted,
   SynchronizedInvocation
 }
 
 object PauseHandler {
-  final case class WorkerPause() extends PromiseBody[PromiseCompleted]
+  final case class WorkerPause() extends ControlCommand[PromiseCompleted]
 }
 
 trait PauseHandler {
@@ -35,5 +35,3 @@ trait PauseHandler {
       }
   }
 }
-
-

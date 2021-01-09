@@ -7,7 +7,7 @@ import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.ExecutionPause
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 import edu.uci.ics.amber.engine.common.promise.{
   PromiseHandlerInitializer,
-  PromiseInvocation,
+  ControlInvocation,
   PromiseManager,
   WorkflowPromise
 }

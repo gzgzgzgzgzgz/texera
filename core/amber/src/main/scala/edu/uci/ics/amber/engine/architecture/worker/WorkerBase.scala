@@ -32,7 +32,7 @@ import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtual
 import edu.uci.ics.amber.engine.common.promise.{
   PromiseContext,
   PromiseHandlerInitializer,
-  PromiseInvocation,
+  ControlInvocation,
   PromiseManager,
   ReturnPayload
 }
@@ -108,7 +108,7 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
   def onPausing(): Unit = {
     // messagingManager.pauseDataSending()
     // pauseManager.pause()
-    promiseManager.execute(PromiseInvocation(null, WorkerPause()))
+    promiseManager.execute(ControlInvocation(null, WorkerPause()))
     context.become(pausing)
   }
 

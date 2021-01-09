@@ -5,7 +5,7 @@ import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlInputPort.Wor
 import edu.uci.ics.amber.engine.common.WorkflowLogger
 import edu.uci.ics.amber.engine.common.ambermessage.neo.{ControlPayload, WorkflowMessage}
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
-import edu.uci.ics.amber.engine.common.promise.{PromiseManager, PromisePayload}
+import edu.uci.ics.amber.engine.common.promise.PromiseManager
 
 import scala.collection.mutable
 
@@ -42,7 +42,7 @@ class ControlInputPort(promiseManager: PromiseManager) {
   @inline
   private def processControlPayload(iter: Iterable[ControlPayload]): Unit = {
     iter.foreach {
-      case p: PromisePayload =>
+      case p: ControlPayload =>
         promiseManager.execute(p)
       case other =>
         logger.logInfo(s"received control message which we cannot handle: $other")
