@@ -127,7 +127,7 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
             returning(e)
         }
       case other =>
-        // skip it
+      // skip it
     }
 
 //    // execute queued sync promises
