@@ -32,21 +32,12 @@ class ControlInputPort(promiseManager: PromiseManager) {
       msg.payload
     ) match {
       case Some(iterable) =>
-        processControlPayload(iterable)
+        iterable.foreach{
+          p => promiseManager.execute(p)
+        }
       case None =>
         // discard duplicate
         println(s"receive duplicated: ${msg.payload}")
-    }
-  }
-
-  @inline
-  private def processControlPayload(iter: Iterable[ControlPayload]): Unit = {
-    iter.foreach {
-      case p: ControlPayload =>
-        promiseManager.execute(p)
-      case other =>
-        logger.logInfo(s"received control message which we cannot handle: $other")
-      //skip for now
     }
   }
 }
