@@ -126,6 +126,8 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
             // if error occurs, return it to the sender.
             returning(e)
         }
+      case other =>
+        // skip it
     }
 
 //    // execute queued sync promises
