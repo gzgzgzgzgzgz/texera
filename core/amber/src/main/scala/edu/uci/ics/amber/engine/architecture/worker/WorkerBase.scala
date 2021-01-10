@@ -407,7 +407,7 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
   def running: Receive =
     processNewControlMessages orElse [Any, Unit] {
       case ReportFailure(e) =>
-        log.info(s"received failure message")
+        logger.info(s"received failure message")
         throw e
       case Pause =>
         logger.info(s"$identifier received Pause message")
@@ -501,12 +501,12 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
 
   def newControlMessageHandler: Receive = {
     case ExecutionCompleted() =>
-      log.info("received complete")
+      logger.info("received complete")
       onCompleted()
       context.become(completed)
       unstashAll()
     case ExecutionPaused() =>
-      log.info(s"received Execution Pause message")
+      logger.info(s"received Execution Pause message")
       onPaused()
       context.become(paused)
       unstashAll()

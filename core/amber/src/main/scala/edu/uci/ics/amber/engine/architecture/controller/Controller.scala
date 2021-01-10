@@ -162,7 +162,6 @@ class Controller(
   val controllerLogger = WorkflowLogger(s"Controller-${tag.getGlobalIdentity}-Logger")
   controllerLogger.setErrorLogAction(errorLogAction)
 
-
   val edges = new mutable.AnyRefMap[LinkTag, OperatorLink]
   val frontier = new mutable.HashSet[OperatorIdentifier]
   var prevFrontier: mutable.HashSet[OperatorIdentifier] = _
@@ -395,7 +394,7 @@ class Controller(
           .SkippedTransitions(operatorToWorkerStateMap(operatorIdentifier)(worker))
           .contains(state)
       ) {
-        log.info(
+        logger.info(
           "Skipped worker state transition for worker{} from {} to {}",
           worker,
           operatorToWorkerStateMap(operatorIdentifier)(worker),
@@ -403,7 +402,7 @@ class Controller(
         )
         operatorToWorkerStateMap(operatorIdentifier)(worker) = state
       } else {
-        log.warning(
+        logger.warn(
           "Invalid worker state transition for worker{} from {} to {}",
           worker,
           operatorToWorkerStateMap(operatorIdentifier)(worker),
@@ -503,11 +502,11 @@ class Controller(
     ) {
       frontier.clear()
       if (stashedFrontier.nonEmpty) {
-        log.info("partially initialized!")
+        logger.info("partially initialized!")
         frontier ++= stashedFrontier
         stashedFrontier.clear()
       } else {
-        log.info("fully initialized!")
+        logger.info("fully initialized!")
       }
       context.parent ! ControllerMessage.ReportState(ControllerState.Ready)
       context.become(ready)
@@ -701,7 +700,7 @@ class Controller(
             if (operatorToTimer(workerToOperator(sender)).isRunning) {
               operatorToTimer(workerToOperator(sender)).stop()
             }
-            log.info(
+            logger.info(
               workflow
                 .operators(workerToOperator(sender))
                 .tag
@@ -716,7 +715,7 @@ class Controller(
   }
 
   private def handleWorkerStateReportsInPausing(state: WorkerState.Value): Unit = {
-    log.info("pausing: " + sender + " to " + state)
+    logger.info("pausing: " + sender + " to " + state)
     val opId = workerToOperator(sender)
     if (setWorkerState(sender, state)) {
       if (areAllWorkersCompleted(workerToOperator(sender))) {
@@ -760,7 +759,7 @@ class Controller(
   }
 
   private def handleWorkerStateReportsInCollBreakpoints(state: WorkerState.Value): Unit = {
-    log.info("collecting: " + sender + " to " + state)
+    logger.info("collecting: " + sender + " to " + state)
     val opId = workerToOperator(sender)
     if (setWorkerState(sender, state)) {
       if (unCompletedWorkerStates(workerToOperator(sender)).forall(_ == WorkerState.Paused)) {
@@ -774,7 +773,7 @@ class Controller(
         }
         safeRemoveAskOperatorHandle(workerToOperator(sender))
         if (!operatorToIsUserPaused(workerToOperator(sender))) {
-          log.info("no global breakpoint triggered, continue")
+          logger.info("no global breakpoint triggered, continue")
           operatorToIsUserPaused(workerToOperator(sender)) = false //reset
           assert(
             operatorToWorkerStateMap(workerToOperator(sender))
@@ -800,9 +799,9 @@ class Controller(
               BreakpointTriggered(map, workflow.operators(workerToOperator(sender)).tag.operator)
             )
           }
-          log.info(map.toString())
+          logger.info(map.toString())
           operatorStateMap(workerToOperator(sender)) = PrincipalState.Paused
-          log.info(
+          logger.info(
             "user paused or global breakpoint triggered, pause. Stage1 cost = " + operatorToStage1Timer(
               workerToOperator(sender)
             )
@@ -867,7 +866,7 @@ class Controller(
   ): Unit = {
     operatorStateMap(opIdentifier) match {
       case PrincipalState.Completed =>
-        log.info(sender + " completed")
+        logger.info(sender + " completed")
         if (stashedNodes.contains(opIdentifier)) {
           operatorToWorkerLayers(opIdentifier).foreach { x =>
             x.layer.foreach { worker =>
@@ -878,7 +877,7 @@ class Controller(
         }
         if (operatorStateMap.values.forall(_ == PrincipalState.Completed)) {
           timer.stop()
-          log.info("workflow completed! Time Elapsed: " + timer.toString())
+          logger.info("workflow completed! Time Elapsed: " + timer.toString())
           timer.reset()
           safeRemoveAskHandle()
           if (frontier.isEmpty) {
@@ -909,7 +908,7 @@ class Controller(
           if (timer.isRunning) {
             timer.stop()
           }
-          log.info("workflow completed! Time Elapsed: " + timer.toString())
+          logger.info("workflow completed! Time Elapsed: " + timer.toString())
           timer.reset()
           safeRemoveAskHandle()
           context.parent ! ControllerMessage.ReportState(ControllerState.Completed)
@@ -918,7 +917,7 @@ class Controller(
           if (pauseTimer.isRunning) {
             pauseTimer.stop()
           }
-          log.info("workflow paused! Time Elapsed: " + pauseTimer.toString())
+          logger.info("workflow paused! Time Elapsed: " + pauseTimer.toString())
           pauseTimer.reset()
           safeRemoveAskHandle()
           context.parent ! ControllerMessage.ReportState(ControllerState.Paused)
@@ -946,7 +945,7 @@ class Controller(
       if (operatorStateMap.values.forall(_ == PrincipalState.Completed)) {
         timer.stop()
         frontier.clear()
-        log.info("workflow completed! Time Elapsed: " + timer.toString())
+        logger.info("workflow completed! Time Elapsed: " + timer.toString())
         timer.reset()
         safeRemoveAskHandle()
         if (frontier.isEmpty) {
@@ -962,7 +961,7 @@ class Controller(
           pauseTimer.stop()
         }
         frontier.clear()
-        log.info("workflow paused! Time Elapsed: " + pauseTimer.toString())
+        logger.info("workflow paused! Time Elapsed: " + pauseTimer.toString())
         pauseTimer.reset()
         safeRemoveAskHandle()
         context.parent ! ControllerMessage.ReportState(ControllerState.Paused)
@@ -998,7 +997,7 @@ class Controller(
   override def receive: Receive = {
     routeActorRefRelatedMessages orElse {
       case LogErrorToFrontEnd(err: WorkflowRuntimeError) =>
-        log.error(err.convertToMap().mkString(" | "))
+        logger.error(err.convertToMap().mkString(" | "))
         eventListener.workflowExecutionErrorListener.apply(ErrorOccurred(err))
       case QueryStatistics =>
       // do nothing, not initialized yet
@@ -1032,7 +1031,7 @@ class Controller(
         }
       case AckedControllerInitialization =>
         val nodes = availableNodes
-        log.info("start initialization --------cluster have " + nodes.length + " nodes---------")
+        logger.info("start initialization --------cluster have " + nodes.length + " nodes---------")
         for (k <- workflow.startOperators) {
           initializeOperatorDataStructures(k)
         }
@@ -1041,7 +1040,7 @@ class Controller(
         )
         frontier ++= workflow.startOperators.flatMap(workflow.outLinks(_))
       case ContinuedInitialization =>
-        log.info("continue initialization")
+        logger.info("continue initialization")
         prevFrontier = frontier
         val nodes = availableNodes
         for (k <- frontier) {
@@ -1062,7 +1061,7 @@ class Controller(
   private[this] def ready: Receive = {
     routeActorRefRelatedMessages orElse {
       case LogErrorToFrontEnd(err: WorkflowRuntimeError) =>
-        log.error(err.convertToMap().mkString(" | "))
+        logger.error(err.convertToMap().mkString(" | "))
         eventListener.workflowExecutionErrorListener.apply(ErrorOccurred(err))
       case QueryStatistics =>
         operatorToWorkerLayers.keys.foreach(opIdentifier => {
@@ -1076,7 +1075,7 @@ class Controller(
         operatorToWorkerStatisticsMap(workerToOperator(sender))(sender) = statistics
         triggerStatusUpdateEvent();
       case Start =>
-        log.info("received start signal")
+        logger.info("received start signal")
         if (!timer.isRunning) {
           timer.start()
         }
@@ -1100,7 +1099,7 @@ class Controller(
             if (!operatorToStage1Timer(workerToOperator(sender)).isRunning) {
               operatorToStage1Timer(workerToOperator(sender)).start()
             }
-            log.info("workflow started!")
+            logger.info("workflow started!")
             context.parent ! ControllerMessage.ReportState(ControllerState.Running)
             context.become(running)
           // unstashAll()
@@ -1112,7 +1111,7 @@ class Controller(
               if (operatorStateMap.values.forall(_ == PrincipalState.Paused)) {
                 // workflow paused
                 pauseTimer.stop()
-                log.info("workflow paused! Time Elapsed: " + pauseTimer.toString())
+                logger.info("workflow paused! Time Elapsed: " + pauseTimer.toString())
                 pauseTimer.reset()
                 safeRemoveAskHandle()
                 context.parent ! ControllerMessage.ReportState(ControllerState.Paused)
@@ -1123,7 +1122,7 @@ class Controller(
               } else if (operatorStateMap.values.forall(_ == PrincipalState.Completed)) {
                 // workflow is already complete
                 timer.stop()
-                log.info("workflow completed! Time Elapsed: " + timer.toString())
+                logger.info("workflow completed! Time Elapsed: " + timer.toString())
                 timer.reset()
                 safeRemoveAskHandle()
                 context.parent ! ControllerMessage.ReportState(ControllerState.Completed)
@@ -1135,7 +1134,7 @@ class Controller(
       case PassBreakpointTo(id: String, breakpoint: GlobalBreakpoint) =>
         val opTag = OperatorIdentifier(tag, id)
         operatorToGlobalBreakpoints(opTag)(breakpoint.id) = breakpoint
-        log.info("assign breakpoint: " + breakpoint.id)
+        logger.info("assign breakpoint: " + breakpoint.id)
         workflow
           .operators(opTag)
           .assignBreakpoint(
@@ -1144,7 +1143,7 @@ class Controller(
             breakpoint
           )
       case msg =>
-        log.info("Stashing: " + msg)
+        logger.info("Stashing: " + msg)
         stash()
     }
   }
@@ -1153,7 +1152,7 @@ class Controller(
     routeActorRefRelatedMessages orElse
       handleBreakpointOnlyWorkerMessages orElse [Any, Unit] {
       case LogErrorToFrontEnd(err: WorkflowRuntimeError) =>
-        log.error(err.convertToMap().mkString(" | "))
+        logger.error(err.convertToMap().mkString(" | "))
         eventListener.workflowExecutionErrorListener.apply(ErrorOccurred(err))
       case KillAndRecover =>
         killAndRecoverStage()
@@ -1184,7 +1183,7 @@ class Controller(
           // shouldn't reach here. there is no state check when workflow is simply running
         }
       case WorkerMessage.ReportState(state) =>
-        log.info("running: " + sender + " to " + state)
+        logger.info("running: " + sender + " to " + state)
         operatorStateMap(workerToOperator(sender)) match {
           case PrincipalState.CollectingBreakpoints =>
             handleWorkerStateReportsInCollBreakpoints(state)
@@ -1207,7 +1206,7 @@ class Controller(
             context.system.scheduler.schedule(30.seconds, 30.seconds, self, EnforceStateCheck(opId))
         })
 
-        log.info("received pause signal")
+        logger.info("received pause signal")
         safeRemoveAskHandle()
         // periodicallyAskHandle =
         // context.system.scheduler.schedule(30.seconds, 30.seconds, self, EnforceStateCheck)
@@ -1251,7 +1250,7 @@ class Controller(
     routeActorRefRelatedMessages orElse
       handleBreakpointOnlyWorkerMessages orElse [Any, Unit] {
       case LogErrorToFrontEnd(err: WorkflowRuntimeError) =>
-        log.error(err.convertToMap().mkString(" | "))
+        logger.error(err.convertToMap().mkString(" | "))
         eventListener.workflowExecutionErrorListener.apply(ErrorOccurred(err))
       case QueryStatistics =>
         operatorToWorkerLayers.keys.foreach(opIdentifier => {
@@ -1297,7 +1296,7 @@ class Controller(
   private[this] def paused: Receive = {
     routeActorRefRelatedMessages orElse {
       case LogErrorToFrontEnd(err: WorkflowRuntimeError) =>
-        log.error(err.convertToMap().mkString(" | "))
+        logger.error(err.convertToMap().mkString(" | "))
         eventListener.workflowExecutionErrorListener.apply(ErrorOccurred(err))
       case KillAndRecover =>
         killAndRecoverStage()
@@ -1330,7 +1329,7 @@ class Controller(
             context.system.scheduler.schedule(30.seconds, 30.seconds, self, EnforceStateCheck(opId))
         })
         frontier ++= workflow.endOperators.flatMap(workflow.inLinks(_))
-        log.info("received resume signal")
+        logger.info("received resume signal")
         safeRemoveAskHandle()
 
         context.parent ! ControllerMessage.ReportState(ControllerState.Resuming)
@@ -1341,11 +1340,11 @@ class Controller(
       case ModifyLogic(newMetadata) =>
         // newLogic is now an OperatorMetadata
 
-        log.info("modify logic received by controller, sending to principal")
+        logger.info("modify logic received by controller, sending to principal")
         operatorToWorkerLayers(newMetadata.tag).foreach(l => {
           l.layer.foreach(worker => worker ! ModifyLogic(newMetadata))
         })
-        log.info("modify logic received by controller, sent to principal")
+        logger.info("modify logic received by controller, sent to principal")
         context.parent ! Ack
         if (this.eventListener.modifyLogicCompletedListener != null) {
           this.eventListener.modifyLogicCompletedListener.apply(ModifyLogicCompleted())
@@ -1378,7 +1377,7 @@ class Controller(
   private[this] def resuming: Receive = {
     routeActorRefRelatedMessages orElse {
       case LogErrorToFrontEnd(err: WorkflowRuntimeError) =>
-        log.error(err.convertToMap().mkString(" | "))
+        logger.error(err.convertToMap().mkString(" | "))
         eventListener.workflowExecutionErrorListener.apply(ErrorOccurred(err))
       case QueryStatistics =>
         operatorToWorkerLayers.keys.foreach(opIdentifier => {
@@ -1428,13 +1427,13 @@ class Controller(
         if (operatorStateMap.values.forall(_ != PrincipalState.Paused)) {
           frontier.clear()
           if (operatorStateMap.values.exists(_ != PrincipalState.Ready)) {
-            log.info("workflow resumed!")
+            logger.info("workflow resumed!")
             safeRemoveAskHandle()
             context.parent ! ControllerMessage.ReportState(ControllerState.Running)
             context.become(running)
 
           } else {
-            log.info("workflow ready!")
+            logger.info("workflow ready!")
             safeRemoveAskHandle()
             context.parent ! ControllerMessage.ReportState(ControllerState.Ready)
             context.become(ready)
@@ -1463,7 +1462,7 @@ class Controller(
   private[this] def completed: Receive = {
     routeActorRefRelatedMessages orElse {
       case LogErrorToFrontEnd(err: WorkflowRuntimeError) =>
-        log.error(err.convertToMap().mkString(" | "))
+        logger.error(err.convertToMap().mkString(" | "))
         eventListener.workflowExecutionErrorListener.apply(ErrorOccurred(err))
       case QueryStatistics =>
         operatorToWorkerLayers.keys.foreach(opIdentifier => {
@@ -1499,7 +1498,7 @@ class Controller(
         }
         this.exitIfCompleted
       case msg =>
-        log.info("received: {} after workflow completed!", msg)
+        logger.info("received: {} after workflow completed!", msg)
 
         this.exitIfCompleted
     }
