@@ -82,7 +82,6 @@ class PauseManager(controlOutputPort: ControlOutputPort) {
     // If dp thread suspended, release it
     if (this.dpThreadBlocker != null) {
       this.dpThreadBlocker.complete(null)
-      this.dpThreadBlocker = null
     }
   }
 

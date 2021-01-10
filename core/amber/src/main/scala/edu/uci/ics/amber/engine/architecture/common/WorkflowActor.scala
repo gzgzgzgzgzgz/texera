@@ -17,7 +17,7 @@ import edu.uci.ics.amber.engine.common.amberexception.WorkflowRuntimeException
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 import edu.uci.ics.amber.error.WorkflowRuntimeError
 
-abstract class WorkflowActor(val identifier: ActorVirtualIdentity)
+abstract class WorkflowActor(identifier: ActorVirtualIdentity)
     extends Actor
     with LazyLogging
     with Stash {
@@ -33,6 +33,8 @@ abstract class WorkflowActor(val identifier: ActorVirtualIdentity)
       if (replyTo.contains(networkSenderActor.ref)) {
         context.parent ! QueryActorRef(id, replyTo)
       } else {
+        // we direct this message to the NetworkSenderActor
+        // because it has the VirtualIdentityToActorRef for each actor.
         networkSenderActor ! QueryActorRef(id, replyTo)
       }
     case RegisterActorRef(id, ref) =>
