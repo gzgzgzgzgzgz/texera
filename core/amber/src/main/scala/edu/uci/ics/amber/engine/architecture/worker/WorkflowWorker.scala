@@ -32,7 +32,11 @@ import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.{
   ActorVirtualIdentity,
   NamedActorVirtualIdentity
 }
-import edu.uci.ics.amber.engine.common.promise.{PromiseInvocation, ReturnPayload}
+import edu.uci.ics.amber.engine.common.promise.{
+  ControlInvocation,
+  PromiseHandlerInitializer,
+  ReturnPayload
+}
 import edu.uci.ics.amber.engine.common.statetransition.WorkerStateManager
 import edu.uci.ics.amber.engine.common.statetransition.WorkerStateManager._
 import edu.uci.ics.amber.engine.common.tuple.ITuple
@@ -65,7 +69,8 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
   lazy val dataOutputPort: DataOutputPort = wire[DataOutputPort]
   lazy val batchProducer: TupleToBatchConverter = wire[TupleToBatchConverter]
   lazy val tupleProducer: BatchToTupleConverter = wire[BatchToTupleConverter]
-  lazy val promiseManager: WorkerPromiseManager = wire[WorkerPromiseManager]
+  lazy val promiseHandlerInitializer: PromiseHandlerInitializer =
+    wire[WorkerPromiseHandlerInitializer]
   lazy val workerStateManager: WorkerStateManager = wire[WorkerStateManager]
 
   val receivedFaultedTupleIds: mutable.HashSet[Long] = new mutable.HashSet[Long]()
@@ -123,7 +128,9 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
       oldControlMessageHandler orElse
       receiveDataMessages orElse {
       case other =>
-        logger.info(s"unhandled message: $other")
+        logger.logError(
+          WorkflowRuntimeError(s"unhandled message: $other", identifier.toString, Map.empty)
+        )
     }
   }
 
@@ -136,7 +143,7 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
       workerStateManager.transitTo(Paused)
       reportState()
     case UpdateInputLinking(identifier, inputNum) =>
-      logger.info(s"received register input for ${this.identifier}")
+      logger.logInfo(s"received register input for ${this.identifier}")
       sender ! Ack
       tupleProducer.registerInput(identifier, inputNum)
     case LocalBreakpointTriggered() =>
@@ -174,8 +181,12 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
     case Start =>
       sender ! Ack
       if (workerStateManager.getCurrentState != Ready) {
-        logger.info(
-          s"unexpected Start message when worker is in ${workerStateManager.getCurrentState}"
+        logger.logError(
+          WorkflowRuntimeError(
+            s"unexpected Start message when worker is in ${workerStateManager.getCurrentState}",
+            identifier.toString,
+            Map.empty
+          )
         )
       } else if (operator.isInstanceOf[ISourceOperatorExecutor]) {
         dataProcessor.appendElement(EndMarker())
@@ -183,10 +194,16 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
         workerStateManager.transitTo(Running)
         reportState()
       } else {
-        logger.info("unexpected Start message for non-source operator!")
+        logger.logError(
+          WorkflowRuntimeError(
+            "unexpected Start message for non-source operator!",
+            identifier.toString,
+            Map.empty
+          )
+        )
       }
     case Pause =>
-      promiseManager.execute(PromiseInvocation(null, WorkerPause()))
+      promiseManager.execute(ControlInvocation(null, WorkerPause()))
       workerStateManager.transitTo(Pausing)
       reportState()
     case Resume =>
@@ -209,7 +226,7 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
         toReport.foreach(_.isReported = true)
         sender ! ReportedTriggeredBreakpoints(toReport)
       } else {
-        throw WorkflowRuntimeException(
+        throw new WorkflowRuntimeException(
           WorkflowRuntimeError(
             "no triggered local breakpoints but worker in triggered breakpoint state",
             "WorkerBase:allowQueryTriggeredBreakpoints",
@@ -280,9 +297,11 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
 
   def processControlMessages: Receive = {
     case msg @ NetworkMessage(id, cmd: WorkflowControlMessage) =>
-      logger.info(s"received ${msg.internalMessage}")
+      logger.logInfo(s"received ${msg.internalMessage}")
       sender ! NetworkAck(id)
+      // use promise manager to handle control messages
       controlInputPort.handleControlMessage(cmd)
+      // for compatibility, call the old control message handling logic
       oldControlMessageHandlingLogic(cmd.payload)
   }
 
