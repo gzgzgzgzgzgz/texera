@@ -1494,7 +1494,7 @@ class Controller(
         }
         this.exitIfCompleted
       case msg =>
-        controllerLogger.logInfo("received: {} after workflow completed!", msg)
+        controllerLogger.logInfo(s"received: $msg after workflow completed!")
 
         this.exitIfCompleted
     }
