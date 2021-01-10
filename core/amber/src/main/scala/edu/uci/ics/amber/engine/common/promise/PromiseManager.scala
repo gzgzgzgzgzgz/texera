@@ -3,16 +3,18 @@ package edu.uci.ics.amber.engine.common.promise
 import com.twitter.util.{Future, Promise}
 import com.typesafe.scalalogging.LazyLogging
 import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlOutputPort
+import edu.uci.ics.amber.engine.common.WorkflowLogger
+import edu.uci.ics.amber.engine.common.ambermessage.neo.ControlPayload
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 
 import scala.collection.mutable
+import scala.reflect.ClassTag
 
 /** This is the central unit of handling promises in actors.
   * @param selfID
   * @param controlOutputPort
   */
-class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOutputPort)
-    extends LazyLogging {
+class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOutputPort) {
 
   // the monotonically increasing identifier
   // for promises created by this promise manager
@@ -29,25 +31,25 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
   // context for current executing promise.
   protected var promiseContext: PromiseContext = _
 
-  // synchronous promises will be enqueued.
-  protected val queuedInvocations = new mutable.Queue[PromisePayload]()
+//  // synchronous promises will be enqueued.
+//  protected val queuedInvocations = new mutable.Queue[PromisePayload]()
+//
+//  // save all synchronous promises with the same root.
+//  protected val ongoingSyncPromises = new mutable.HashSet[PromiseContext]()
+//
+//  // the root context for the current synchronous promise.
+//  protected var syncPromiseRoot: PromiseContext = _
 
-  // save all synchronous promises with the same root.
-  protected val ongoingSyncPromises = new mutable.HashSet[PromiseContext]()
+  // all the promise handlers
+  protected var promiseHandler: PartialFunction[ControlCommand[_], Unit] = _
 
-  // the root context for the current synchronous promise.
-  protected var syncPromiseRoot: PromiseContext = _
-
-  // empty promise handler.
-  // default behavior: discard
-  protected var promiseHandler: PartialFunction[PromiseBody[_], Unit] = {
-    case promise =>
-      logger.info(s"discarding $promise")
+  def setPromiseHandlers(handlers: PartialFunction[ControlCommand[_], Unit]): Unit = {
+    promiseHandler = handlers
   }
 
   // process one promise message.
-  def execute(event: PromisePayload): Unit = {
-    event match {
+  def execute(payload: ControlPayload): Unit = {
+    payload match {
       // handle return value
       case ret: ReturnPayload =>
         // if the return value corresponds to one of the
@@ -81,33 +83,39 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
           }
         }
 
-      // handle root synchronous promise
-      case PromiseInvocation(ctx: RootPromiseContext, call: SynchronizedInvocation) =>
-        if (syncPromiseRoot == null) {
-          // if there is no other executing synchronous promise,
-          // execute this one
-          registerSyncPromise(ctx, ctx)
-          invokePromise(ctx, call)
-        } else {
-          // otherwise, enqueue it
-          queuedInvocations.enqueue(event)
-        }
+//      // handle root synchronous promise
+//      case PromiseInvocation(
+//            ctx: RootPromiseContext,
+//            call: PromiseBody[_] with SynchronizedInvocation
+//          ) =>
+//        if (syncPromiseRoot == null) {
+//          // if there is no other executing synchronous promise,
+//          // execute this one
+//          registerSyncPromise(ctx, ctx)
+//          invokePromise(ctx, call)
+//        } else {
+//          // otherwise, enqueue it
+//          queuedInvocations.enqueue(payload)
+//        }
+//
+//      // handle synchronous promise created by other promise
+//      case PromiseInvocation(
+//            ctx: ChildPromiseContext,
+//            call: PromiseBody[_] with SynchronizedInvocation
+//          ) =>
+//        if (syncPromiseRoot == null || ctx.root == syncPromiseRoot) {
+//          // if there is no other executing synchronous promise,
+//          // or this promise has same root context (chain of promises),
+//          // execute this one.
+//          registerSyncPromise(ctx.root, ctx)
+//          invokePromise(ctx, call)
+//        } else {
+//          // otherwise, enqueue it
+//          queuedInvocations.enqueue(payload)
+//        }
 
-      // handle synchronous promise created by other promise
-      case PromiseInvocation(ctx: ChildPromiseContext, call: SynchronizedInvocation) =>
-        if (syncPromiseRoot == null || ctx.root == syncPromiseRoot) {
-          // if there is no other executing synchronous promise,
-          // or this promise has same root context (chain of promises),
-          // execute this one.
-          registerSyncPromise(ctx.root, ctx)
-          invokePromise(ctx, call)
-        } else {
-          // otherwise, enqueue it
-          queuedInvocations.enqueue(event)
-        }
-
-      // trivial case
-      case p: PromiseInvocation =>
+      // normal case
+      case p: ControlInvocation =>
         // set context
         promiseContext = p.context
         try {
@@ -118,24 +126,23 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
             // if error occurs, return it to the sender.
             returning(e)
         }
+      case other =>
+      // skip it
     }
 
-    // execute queued sync promises
-    tryInvokeNextSyncPromise()
+//    // execute queued sync promises
+//    tryInvokeNextSyncPromise()
   }
 
   // send a control message to another actor, and keep the handle.
-  def schedule[T](cmd: PromiseBody[T], on: ActorVirtualIdentity = selfID): Promise[T] = {
-    val ctx = mkPromiseContext()
-    promiseID += 1
-    controlOutputPort.sendTo(on, PromiseInvocation(ctx, cmd))
-    val promise = WorkflowPromise[T](promiseContext)
-    unCompletedPromises(ctx) = promise
+  def schedule[T](cmd: ControlCommand[T], on: ActorVirtualIdentity): Promise[T] = {
+    val (promise, ctx) = createPromise[T]()
+    controlOutputPort.sendTo(on, ControlInvocation(ctx, cmd))
     promise
   }
 
   // send a grouped control message to other actors, and keep the handle.
-  def schedule[T](seq: (PromiseBody[T], ActorVirtualIdentity)*): Promise[Seq[T]] = {
+  def schedule[T: ClassTag](seq: (ControlCommand[T], ActorVirtualIdentity)*): Promise[Seq[T]] = {
     val promise = WorkflowPromise[Seq[T]](promiseContext)
     if (seq.isEmpty) {
       // if the sequence is empty, resolve the promise immediately
@@ -148,7 +155,7 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
         case (body, virtualIdentity) =>
           val ctx = mkPromiseContext()
           promiseID += 1
-          controlOutputPort.sendTo(virtualIdentity, PromiseInvocation(ctx, body))
+          controlOutputPort.sendTo(virtualIdentity, ControlInvocation(ctx, body))
       }
     }
     promise
@@ -174,28 +181,37 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
   }
 
   @inline
+  def createPromise[T](): (WorkflowPromise[T], PromiseContext) = {
+    val ctx = mkPromiseContext()
+    promiseID += 1
+    val promise = WorkflowPromise[T](promiseContext)
+    unCompletedPromises(ctx) = promise
+    (promise, ctx)
+  }
+
+  @inline
   private def exitCurrentPromise(): Unit = {
-    if (ongoingSyncPromises.contains(promiseContext)) {
-      ongoingSyncPromises.remove(promiseContext)
-    }
+//    if (ongoingSyncPromises.contains(promiseContext)) {
+//      ongoingSyncPromises.remove(promiseContext)
+//    }
     promiseContext = null
   }
 
-  @inline
-  private def tryInvokeNextSyncPromise(): Unit = {
-    if (ongoingSyncPromises.isEmpty) {
-      syncPromiseRoot = null
-      if (queuedInvocations.nonEmpty) {
-        execute(queuedInvocations.dequeue())
-      }
-    }
-  }
+//  @inline
+//  private def tryInvokeNextSyncPromise(): Unit = {
+//    if (ongoingSyncPromises.isEmpty) {
+//      syncPromiseRoot = null
+//      if (queuedInvocations.nonEmpty) {
+//        execute(queuedInvocations.dequeue())
+//      }
+//    }
+//  }
 
-  @inline
-  private def registerSyncPromise(rootCtx: RootPromiseContext, ctx: PromiseContext): Unit = {
-    syncPromiseRoot = rootCtx
-    ongoingSyncPromises.add(ctx)
-  }
+//  @inline
+//  private def registerSyncPromise(rootCtx: RootPromiseContext, ctx: PromiseContext): Unit = {
+//    syncPromiseRoot = rootCtx
+//    ongoingSyncPromises.add(ctx)
+//  }
 
   @inline
   protected def mkPromiseContext(): PromiseContext = {
@@ -213,7 +229,7 @@ class PromiseManager(selfID: ActorVirtualIdentity, controlOutputPort: ControlOut
   }
 
   @inline
-  private def invokePromise(ctx: PromiseContext, call: PromiseBody[_]): Unit = {
+  private def invokePromise(ctx: PromiseContext, call: ControlCommand[_]): Unit = {
     promiseContext = ctx
     promiseHandler(call)
   }

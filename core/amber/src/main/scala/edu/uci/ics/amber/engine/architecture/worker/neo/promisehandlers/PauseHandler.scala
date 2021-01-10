@@ -2,29 +2,28 @@ package edu.uci.ics.amber.engine.architecture.worker.neo.promisehandlers
 
 import akka.actor.ActorContext
 import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerInternalQueue.DummyInput
-import edu.uci.ics.amber.engine.architecture.worker.neo.WorkerPromiseManager
+import edu.uci.ics.amber.engine.architecture.worker.neo.{WorkerPromiseHandlerInitializer}
 import edu.uci.ics.amber.engine.architecture.worker.neo.promisehandlers.PauseHandler.WorkerPause
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.{ExecutionPaused, ReportState}
 import edu.uci.ics.amber.engine.common.promise.{
-  PromiseBody,
+  ControlCommand,
   PromiseCompleted,
-  PromiseHandler,
   SynchronizedInvocation
 }
 import edu.uci.ics.amber.engine.common.statetransition.WorkerStateManager._
 
 object PauseHandler {
-  final case class WorkerPause() extends PromiseBody[PromiseCompleted]
+  final case class WorkerPause() extends ControlCommand[PromiseCompleted]
 }
 
-trait PauseHandler extends PromiseHandler {
-  this: WorkerPromiseManager =>
+trait PauseHandler {
+  this: WorkerPromiseHandlerInitializer =>
 
   registerHandler {
     case WorkerPause() =>
       // workerStateManager.shouldBe(Running, Ready)
-      val p = createLocalPromise[ExecutionPaused]()
-      pauseManager.registerPromise(p)
+      val (p, ctx) = createPromise[ExecutionPaused]()
+      pauseManager.registerNotifyContext(ctx)
       pauseManager.pause()
       // workerStateManager.transitTo(Pausing)
       // if dp thread is blocking on waiting for input tuples:
@@ -33,6 +32,7 @@ trait PauseHandler extends PromiseHandler {
         dataProcessor.appendElement(DummyInput())
       }
       p.map { res =>
+        println("pause actually returned")
         //workerStateManager.transitTo(Paused)
         returning()
       }

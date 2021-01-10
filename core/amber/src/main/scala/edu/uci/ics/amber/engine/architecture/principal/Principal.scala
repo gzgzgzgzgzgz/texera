@@ -78,11 +78,11 @@ import com.google.common.base.Stopwatch
 import com.softwaremill.macwire.wire
 import edu.uci.ics.amber.engine.architecture.common.WorkflowActor
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor
-import com.typesafe.scalalogging.Logger
+import com.typesafe.scalalogging.{LazyLogging, Logger}
 import edu.uci.ics.amber.engine.architecture.controller.ControllerEvent.ErrorOccurred
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.RegisterActorRef
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.NamedActorVirtualIdentity
-import edu.uci.ics.amber.engine.common.promise.PromiseManager
+import edu.uci.ics.amber.engine.common.promise.{PromiseHandlerInitializer, PromiseManager}
 import edu.uci.ics.amber.error.WorkflowRuntimeError
 
 import scala.collection.mutable
@@ -100,15 +100,13 @@ class Principal(val metadata: OpExecConfig)
   implicit val ec: ExecutionContext = context.dispatcher
   implicit val timeout: Timeout = 5.seconds
 
-  override lazy val promiseManager: PromiseManager = wire[PromiseManager]
+  lazy val promiseHandlerInitializer = wire[PromiseHandlerInitializer]
 
   private def errorLogAction(err: WorkflowRuntimeError): Unit = {
-    Logger(
-      s"Principal-${metadata.tag.getGlobalIdentity}-Logger"
-    ).error(err.convertToMap().mkString(" | "))
     context.parent ! LogErrorToFrontEnd(err)
   }
-  val errorLogger = WorkflowLogger(errorLogAction)
+  val errorLogger = WorkflowLogger(s"Principal-${metadata.tag.getGlobalIdentity}-Logger")
+  errorLogger.setErrorLogAction(errorLogAction)
   val tau: FiniteDuration = Constants.defaultTau
   var workerLayers: Array[WorkerLayer] = _
   var workerEdges: Array[LinkStrategy] = _
@@ -246,7 +244,6 @@ class Principal(val metadata: OpExecConfig)
       case Resume => context.parent ! ReportState(PrincipalState.Ready)
       case AssignBreakpoint(breakpoint) =>
         globalBreakpoints(breakpoint.id) = breakpoint
-        logger.info("assign breakpoint: " + breakpoint.id)
         metadata.assignBreakpoint(workerLayers, workerStateMap, breakpoint)
         sender ! Ack
       case Pause =>
@@ -266,7 +263,6 @@ class Principal(val metadata: OpExecConfig)
         receivedRecoveryInformation(amberTag) = (seq1, seq2)
       case WorkerMessage.ReportState(state) =>
         try {
-          logger.info("running: " + sender + " to " + state)
           if (setWorkerState(sender, state)) {
             state match {
               case WorkerState.LocalBreakpointTriggered =>
@@ -337,9 +333,6 @@ class Principal(val metadata: OpExecConfig)
                   if (timer.isRunning) {
                     timer.stop()
                   }
-                  logger.info(
-                    metadata.tag.toString + " completed! Time Elapsed: " + timer.toString()
-                  )
                   context.parent ! ReportState(PrincipalState.Completed)
                   context.become(completed)
                   unstashAll()
@@ -349,14 +342,14 @@ class Principal(val metadata: OpExecConfig)
           }
         } catch {
           case e: WorkflowRuntimeException =>
-            errorLogger.log(e.runtimeError)
+            errorLogger.logError(e.runtimeError)
           case e: Exception =>
             val error = WorkflowRuntimeError(
               e.getMessage(),
               "Principal:Running:WorkerMessage.ReportState",
               Map("trace" -> e.getStackTrace.mkString("\n"))
             )
-            errorLogger.log(error)
+            errorLogger.logError(error)
         }
 
       case WorkerMessage.ReportStatistics(statistics) =>
@@ -373,7 +366,7 @@ class Principal(val metadata: OpExecConfig)
         if (sender != self) {
           isUserPaused = true
         }
-        logger.info(s"received pause message, allworkers: ${allWorkers.mkString(",")}")
+        errorLogger.logInfo(s"received pause message, allworkers: ${allWorkers.mkString(",")}")
 
         allWorkers.foreach(worker => worker ! Pause)
         safeRemoveAskHandle()
@@ -439,7 +432,6 @@ class Principal(val metadata: OpExecConfig)
       case reportCurrentTuple: WorkerMessage.ReportCurrentProcessingTuple =>
         receivedTuples.append((reportCurrentTuple.tuple, reportCurrentTuple.workerID))
       case WorkerMessage.ReportState(state) =>
-        logger.info("pausing: " + sender + " to " + state)
         if (setWorkerState(sender, state)) {
           if (whenAllWorkersCompleted) {
             safeRemoveAskHandle()
@@ -512,15 +504,10 @@ class Principal(val metadata: OpExecConfig)
             context.become(paused)
             unstashAll()
             if (!isUserPaused) {
-              logger.info("no global breakpoint triggered, continue")
               self ! Resume
             } else {
               context.parent ! ReportGlobalBreakpointTriggered(map, this.metadata.tag.operator)
               context.parent ! ReportState(PrincipalState.Paused)
-              logger.info(
-                "user paused or global breakpoint triggered, pause. Stage1 cost = " + stage1Timer
-                  .toString() + " Stage2 cost =" + stage2Timer.toString()
-              )
             }
             if (stage2Timer.isRunning) {
               stage2Timer.stop()
@@ -663,10 +650,8 @@ class Principal(val metadata: OpExecConfig)
       case QueryState     => sender ! ReportState(PrincipalState.Paused)
       case ModifyLogic(newMetadata) =>
         sender ! Ack
-        logger.info("modify logic received by principal, sending to worker")
         this.allWorkers.foreach(worker => worker ! ModifyLogic(newMetadata))
-        //      allWorkers.foreach(worker => AdvancedMessageSending.blockingAskWithRetry(worker, ModifyLogic(newMetadata), 3))
-        logger.info("modify logic received  by principal, sent to worker")
+      //      allWorkers.foreach(worker => AdvancedMessageSending.blockingAskWithRetry(worker, ModifyLogic(newMetadata), 3))
       case QueryStatistics =>
         this.allWorkers.foreach(worker => worker ! QueryStatistics)
       case WorkerMessage.ReportStatistics(statistics) =>

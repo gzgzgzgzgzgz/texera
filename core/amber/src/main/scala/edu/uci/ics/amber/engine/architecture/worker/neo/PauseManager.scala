@@ -8,11 +8,13 @@ import com.twitter.util.Promise
 import com.typesafe.scalalogging.LazyLogging
 import edu.uci.ics.amber.engine.architecture.messaginglayer.ControlOutputPort
 import edu.uci.ics.amber.engine.architecture.worker.neo.PauseManager.{NoPause, Paused}
+import edu.uci.ics.amber.engine.common.WorkflowLogger
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.ExecutionPaused
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity
 import edu.uci.ics.amber.engine.common.promise.{
   PromiseCompleted,
   PromiseContext,
+  PromiseManager,
   ReturnPayload,
   WorkflowPromise
 }
@@ -22,7 +24,9 @@ object PauseManager {
   final val Paused = 1
 }
 
-class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
+class PauseManager(controlOutputPort: ControlOutputPort) {
+
+  protected val logger: WorkflowLogger = WorkflowLogger("PauseManager")
 
   // current pause privilege level
   private val pausePrivilegeLevel = new AtomicInteger(PauseManager.NoPause)
@@ -30,7 +34,7 @@ class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
   // volatile is necessary otherwise main thread cannot notice the change.
   // volatile means read/writes are through memory rather than CPU cache
   @volatile private var dpThreadBlocker: CompletableFuture[Void] = _
-  @volatile private var promiseFromActorThread: WorkflowPromise[ExecutionPaused] = _
+  @volatile private var promiseContextFromActorThread: PromiseContext = _
 
   /** pause functionality
     * both dp thread and actor can call this function
@@ -51,18 +55,18 @@ class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
 
   }
 
-  def registerPromise(workflowPromise: WorkflowPromise[ExecutionPaused]): Unit = {
+  def registerNotifyContext(promiseContext: PromiseContext): Unit = {
     if (isPaused) {
       controlOutputPort.sendTo(
         VirtualIdentity.Self,
-        ReturnPayload(workflowPromise.ctx, ExecutionPaused())
+        ReturnPayload(promiseContext, ExecutionPaused())
       )
     } else {
-      promiseFromActorThread = workflowPromise
+      promiseContextFromActorThread = promiseContext
     }
   }
 
-  def isPaused: Boolean = isPauseSet() && dpThreadBlocker != null
+  def isPaused: Boolean = isPauseSet() && dpThreadBlocker != null && !dpThreadBlocker.isDone
 
   /** resume functionality
     * only actor calls this function for now
@@ -70,7 +74,7 @@ class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
     */
   def resume(): Unit = {
     if (pausePrivilegeLevel.get() == NoPause) {
-      logger.info("already resumed")
+      logger.logInfo("already resumed")
       return
     }
     // only privilege level >= current pause privilege level can resume the worker
@@ -100,17 +104,17 @@ class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
     // create a future and wait for its completion
     this.dpThreadBlocker = new CompletableFuture[Void]
     // notify main actor thread
-    if (promiseFromActorThread != null) {
+    if (promiseContextFromActorThread != null) {
       controlOutputPort.sendTo(
         VirtualIdentity.Self,
-        ReturnPayload(promiseFromActorThread.ctx, ExecutionPaused())
+        ReturnPayload(promiseContextFromActorThread, ExecutionPaused())
       )
-      promiseFromActorThread = null
+      promiseContextFromActorThread = null
     }
     // thread blocks here
-    logger.info(s"dp thread blocked")
+    logger.logInfo(s"dp thread blocked")
     this.dpThreadBlocker.get
-    logger.info(s"dp thread resumed")
+    logger.logInfo(s"dp thread resumed")
   }
 
   /** unblock DP thread by resolving the CompletableFuture
@@ -118,7 +122,7 @@ class PauseManager(controlOutputPort: ControlOutputPort) extends LazyLogging {
   private[this] def unblockDPThread(): Unit = {
     // If dp thread suspended, release it
     if (dpThreadBlocker != null) {
-      logger.info("resume the worker by complete the future")
+      logger.logInfo("resume the worker by complete the future")
       this.dpThreadBlocker.complete(null)
     }
   }
