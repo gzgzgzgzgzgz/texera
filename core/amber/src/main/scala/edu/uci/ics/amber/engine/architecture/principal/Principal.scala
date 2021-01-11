@@ -250,7 +250,7 @@ class Principal(val metadata: OpExecConfig)
       case QueryState     => sender ! ReportState(PrincipalState.Ready)
       case QueryStatistics =>
         this.allWorkers.foreach(worker => worker ! QueryStatistics)
-      case Resume                       => context.parent ! ReportState(PrincipalState.Ready)
+      case Resume => context.parent ! ReportState(PrincipalState.Ready)
       case AssignBreakpoint(breakpoint) =>
         globalBreakpoints(breakpoint.id) = breakpoint
         metadata.assignBreakpoint(workerLayers, workerStateMap, breakpoint)
