@@ -429,7 +429,7 @@ abstract class WorkerBase(identifier: ActorVirtualIdentity) extends WorkflowActo
   def running: Receive =
     processNewControlMessages orElse [Any, Unit] {
       case ReportFailure(e) =>
-        logger.info(s"received failure message")
+        logger.logInfo(s"received failure message")
         throw e
       case Pause =>
         onPausing()
