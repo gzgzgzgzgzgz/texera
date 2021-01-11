@@ -136,17 +136,21 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
 
   def oldControlMessageHandlingLogic: Receive = {
     case ExecutionCompleted() =>
+      workerStateManager.confirmState(Running)
       isCompleted = true
       workerStateManager.transitTo(Completed)
       reportState()
     case ReturnPayload(_, v: ExecutionPaused) =>
+      workerStateManager.confirmState(Pausing)
       workerStateManager.transitTo(Paused)
       reportState()
     case UpdateInputLinking(identifier, inputNum) =>
+      workerStateManager.confirmState(Ready)
       logger.logInfo(s"received register input for ${this.identifier}")
       sender ! Ack
       tupleProducer.registerInput(identifier, inputNum)
     case LocalBreakpointTriggered() =>
+      workerStateManager.confirmState(Running)
       dataProcessor.breakpoints.foreach { brk =>
         if (brk.isTriggered)
           dataProcessor.unhandledFaultedTuples(brk.triggeredTupleId) =
@@ -180,15 +184,8 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
   def oldControlMessageHandler: Receive = {
     case Start =>
       sender ! Ack
-      if (workerStateManager.getCurrentState != Ready) {
-        logger.logError(
-          WorkflowRuntimeError(
-            s"unexpected Start message when worker is in ${workerStateManager.getCurrentState}",
-            identifier.toString,
-            Map.empty
-          )
-        )
-      } else if (operator.isInstanceOf[ISourceOperatorExecutor]) {
+      workerStateManager.confirmState(Ready)
+      if (operator.isInstanceOf[ISourceOperatorExecutor]) {
         dataProcessor.appendElement(EndMarker())
         dataProcessor.appendElement(EndOfAllMarker())
         workerStateManager.transitTo(Running)
@@ -203,14 +200,17 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
         )
       }
     case Pause =>
+      workerStateManager.confirmState(Running)
       promiseManager.execute(ControlInvocation(null, WorkerPause()))
       workerStateManager.transitTo(Pausing)
       reportState()
     case Resume =>
+      workerStateManager.confirmState(Paused)
       pauseManager.resume()
       workerStateManager.transitTo(Running)
       reportState()
     case AckedWorkerInitialization(recoveryInformation) =>
+      workerStateManager.confirmState(UnInitialized)
       operator.open()
       workerStateManager.transitTo(Ready)
       reportState()
@@ -260,6 +260,7 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
 //        unstashAll()
 //      }
     case SkipTuple(f) =>
+      workerStateManager.confirmState(Paused)
       sender ! Ack
       if (!receivedFaultedTupleIds.contains(f.id)) {
         receivedFaultedTupleIds.add(f.id)
@@ -267,6 +268,7 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
         onSkipTuple(f)
       }
     case ModifyTuple(f) =>
+      workerStateManager.confirmState(Paused)
       sender ! Ack
       if (!receivedFaultedTupleIds.contains(f.id)) {
         receivedFaultedTupleIds.add(f.id)
@@ -274,6 +276,7 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
         onModifyTuple(f)
       }
     case ResumeTuple(f) =>
+      workerStateManager.confirmState(Paused)
       sender ! Ack
       if (!receivedFaultedTupleIds.contains(f.id)) {
         receivedFaultedTupleIds.add(f.id)
