@@ -32,11 +32,8 @@ import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.{
   ActorVirtualIdentity,
   NamedActorVirtualIdentity
 }
-import edu.uci.ics.amber.engine.common.promise.{
-  ControlInvocation,
-  PromiseHandlerInitializer,
-  ReturnPayload
-}
+import edu.uci.ics.amber.engine.common.promise.RPCClient.{ControlInvocation, ReturnPayload}
+import edu.uci.ics.amber.engine.common.promise.RPCHandlerInitializer
 import edu.uci.ics.amber.engine.common.statetransition.WorkerStateManager
 import edu.uci.ics.amber.engine.common.statetransition.WorkerStateManager._
 import edu.uci.ics.amber.engine.common.tuple.ITuple
@@ -69,9 +66,10 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
   lazy val dataOutputPort: DataOutputPort = wire[DataOutputPort]
   lazy val batchProducer: TupleToBatchConverter = wire[TupleToBatchConverter]
   lazy val tupleProducer: BatchToTupleConverter = wire[BatchToTupleConverter]
-  lazy val promiseHandlerInitializer: PromiseHandlerInitializer =
-    wire[WorkerPromiseHandlerInitializer]
   lazy val workerStateManager: WorkerStateManager = wire[WorkerStateManager]
+
+  val promiseHandlerInitializer: RPCHandlerInitializer =
+    wire[WorkerRPCHandlerInitializer]
 
   val receivedFaultedTupleIds: mutable.HashSet[Long] = new mutable.HashSet[Long]()
   var isCompleted = false
@@ -203,7 +201,7 @@ class WorkflowWorker(identifier: ActorVirtualIdentity, operator: IOperatorExecut
         )
       }
     case Pause =>
-      promiseManager.execute(ControlInvocation(null, WorkerPause()))
+      rpcServer.execute(ControlInvocation(null, WorkerPause()))
       workerStateManager.transitTo(Pausing)
       reportState()
     case Resume =>

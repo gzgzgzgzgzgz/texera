@@ -82,7 +82,7 @@ import com.typesafe.scalalogging.{LazyLogging, Logger}
 import edu.uci.ics.amber.engine.architecture.controller.ControllerEvent.ErrorOccurred
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkSenderActor.RegisterActorRef
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.NamedActorVirtualIdentity
-import edu.uci.ics.amber.engine.common.promise.{PromiseHandlerInitializer, PromiseManager}
+import edu.uci.ics.amber.engine.common.promise.RPCHandlerInitializer
 import edu.uci.ics.amber.error.WorkflowRuntimeError
 
 import scala.collection.mutable
@@ -100,7 +100,7 @@ class Principal(val metadata: OpExecConfig)
   implicit val ec: ExecutionContext = context.dispatcher
   implicit val timeout: Timeout = 5.seconds
 
-  lazy val promiseHandlerInitializer = wire[PromiseHandlerInitializer]
+  lazy val promiseHandlerInitializer = wire[RPCHandlerInitializer]
 
   private def errorLogAction(err: WorkflowRuntimeError): Unit = {
     context.parent ! LogErrorToFrontEnd(err)

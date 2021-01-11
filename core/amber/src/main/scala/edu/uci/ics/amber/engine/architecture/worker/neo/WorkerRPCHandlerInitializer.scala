@@ -6,18 +6,23 @@ import edu.uci.ics.amber.engine.architecture.worker.neo.promisehandlers.PauseHan
 import edu.uci.ics.amber.engine.common.ambermessage.WorkerMessage.ExecutionPaused
 import edu.uci.ics.amber.engine.common.ambertag.neo.VirtualIdentity.ActorVirtualIdentity
 import edu.uci.ics.amber.engine.common.promise.{
-  PromiseHandlerInitializer,
-  ControlInvocation,
-  PromiseManager,
+  RPCClient,
+  RPCHandlerInitializer,
+  RPCServer,
   WorkflowPromise
 }
-import edu.uci.ics.amber.engine.common.statetransition.WorkerStateManager
 
-class WorkerPromiseHandlerInitializer(
+class WorkerRPCHandlerInitializer(
     val selfID: ActorVirtualIdentity,
     val controlOutputPort: ControlOutputPort,
     val pauseManager: PauseManager,
     val dataProcessor: DataProcessor,
-    promiseManager: PromiseManager
-) extends PromiseHandlerInitializer(promiseManager)
-    with PauseHandler {}
+    rpcClient: RPCClient,
+    rpcServer: RPCServer
+) extends RPCHandlerInitializer(rpcClient, rpcServer)
+    with PauseHandler {
+
+  def createPromise[T](): (Promise[T], Long) = {
+    rpcClient.createPromise()
+  }
+}
