@@ -7,10 +7,17 @@
   z-index: 1;
 }
 
+
+.user-icon-navigation-page{
+  position:relative;
+  top:-3px;
+  left:630px;
+}
+
 .texera-navigation-padded {
   height: 100%;
   width: 100%;
-  overflow: hidden;
+  overflow: visible; //was hidden previously
   display: grid;
   grid-template-columns: 14% auto auto auto auto;
   grid-template-rows: calc(100% - 56px) 56px;
