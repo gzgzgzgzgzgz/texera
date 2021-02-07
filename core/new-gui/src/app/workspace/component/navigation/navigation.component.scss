@@ -11,7 +11,7 @@
 .user-icon-navigation-page{
   position:relative;
   top:-3px;
-  left:630px;
+  left:800px;
 }
 
 .texera-navigation-padded {
@@ -93,10 +93,9 @@
 
   .texera-navigation-workflow-metadata {
     --left-padding: 10px;
-
     grid-column: 2/6;
     grid-row: 1/2;
-    z-index: 1;
+    z-index: 2;
     align-self: end;
     padding-left: var(--left-padding);
 
@@ -169,12 +168,15 @@
 
     .texera-navigation-run-button {
       width: 16ch;
+      overflow:hidden;
       text-align: left;
       z-index: 1;
 
       .texera-navigation-run-button-icon {
         width: max-content;
         padding-right: 8px;
+        overflow:hidden;
+        z-index:-1;
       }
     }
 
