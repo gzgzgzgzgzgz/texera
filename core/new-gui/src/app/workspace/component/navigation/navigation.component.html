@@ -13,8 +13,11 @@
                placeholder="Untitled Workflow"/>
       </label>
       <span class="save-state" spellcheck="false">{{autoSaveState}}</span>
-        <texera-user-icon class="user-icon-navigation-page">
-        </texera-user-icon>
+    </div>
+
+    <div *ngIf="userSystemEnabled" class="texera-navigation-user-icon">
+      <texera-user-icon (click)="onClickUserIcon()"> 
+      </texera-user-icon>
     </div>
 
     <div class='texera-navigation-dashboard'>

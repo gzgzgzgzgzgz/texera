@@ -7,17 +7,10 @@
   z-index: 1;
 }
 
-
-.user-icon-navigation-page{
-  position:relative;
-  top:-3px;
-  left:890px;
-}
-
 .texera-navigation-padded {
   height: 100%;
   width: 100%;
-  overflow: visible; //was hidden previously
+  overflow: hidden; 
   display: grid;
   grid-template-columns: 14% auto auto auto auto;
   grid-template-rows: calc(100% - 56px) 56px;
@@ -77,6 +70,13 @@
     }
   }
 
+  .texera-navigation-user-icon{
+    grid-column: 5/5;
+    grid-row: 1/2;
+    text-align: right;
+    z-index:2;
+  }
+  
   .texera-navigation-dashboard {
     grid-column: 2/3;
     grid-row: 2/2;
@@ -95,7 +95,7 @@
     --left-padding: 10px;
     grid-column: 2/6;
     grid-row: 1/2;
-    z-index: 2;
+    z-index: 1;
     align-self: end;
     padding-left: var(--left-padding);
 
