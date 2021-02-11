@@ -348,7 +348,6 @@ export class NavigationComponent implements OnInit {
   }
 
   onClickUserIcon(){
-    console.log("onclick");
     const elements = Array.from(document.getElementsByClassName("texera-navigation-padded") as HTMLCollectionOf<HTMLElement>);
     elements.forEach( (element) => {
       element.style.overflow = "visible";
