@@ -346,12 +346,4 @@ export class NavigationComponent implements OnInit {
 
         });
   }
-
-  onClickUserIcon(){
-    const elements = Array.from(document.getElementsByClassName("texera-navigation-padded") as HTMLCollectionOf<HTMLElement>);
-    elements.forEach( (element) => {
-      element.style.overflow = "visible";
-    })
-  };
-
 }
