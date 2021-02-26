@@ -1,10 +1,8 @@
-import { Group } from './../../../../../workspace/service/workflow-graph/model/operator-group';
 import { Component, OnInit } from '@angular/core';
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
 import { UserService } from '../../../../../common/service/user/user.service';
 import { User } from '../../../../../common/type/user';
-import {Validators, FormControl, FormGroup, FormBuilder} from '@angular/forms';
-import {ErrorStateMatcher} from '@angular/material/core';
+
 /**
  * NgbdModalUserLoginComponent is the pop up for user login/registration
  *
@@ -17,16 +15,12 @@ import {ErrorStateMatcher} from '@angular/material/core';
 })
 export class NgbdModalUserLoginComponent implements OnInit {
   public loginUserName: string = '';
-  public loginPassword = new FormControl('', [Validators.required]);
   public registerUserName: string = '';
-  public registerPassword = new FormControl('', [Validators.required]);
-  public registerConfirmationPassword = new FormControl('', [Validators.required]);
   public selectedTab = 0;
   public loginErrorMessage: string | undefined;
   public registerErrorMessage: string | undefined;
 
   constructor(
-    private fb: FormBuilder,
     public activeModal: NgbActiveModal,
     private userService: UserService) {
   }
@@ -35,30 +29,11 @@ export class NgbdModalUserLoginComponent implements OnInit {
     this.detectUserChange();
   }
 
-  signupForms = new FormGroup(
-    {
-      password: new FormControl('', [Validators.required]),
-      verifyPassword: new FormControl('', [Validators.required]),
-    },
-  )
-
-  public errorMessageLoginPasswordNull(): string{
-    return this.loginPassword.hasError('required') ? "Password required" : "";
-  }
-
-  public errorMessageRegisterPasswordNull(): string{
-    return this.registerPassword.hasError('required') ? "Password required" : "";
-  }
-
-  public errorMessageRegisterConfirmationPasswordNull(): string{
-    return this.registerConfirmationPassword.hasError('required') ? "Confirmation required" : "";
-  }
   /**
    * This method is respond for the sign in button in the pop up
    * It will send data inside the text entry to the user service to login
    */
   public login(): void {
-    console.log(this.loginPassword.value);
     // validate the credentials format
     this.loginErrorMessage = undefined;
     const validation = this.userService.validateUsername(this.loginUserName);
@@ -84,10 +59,6 @@ export class NgbdModalUserLoginComponent implements OnInit {
     // validate the credentials format
     this.registerErrorMessage = undefined;
     const validation = this.userService.validateUsername(this.registerUserName);
-    if (this.registerPassword.value !== this.registerConfirmationPassword.value){
-      this.registerErrorMessage = 'Passwords do not match';
-      return; 
-    }
     if (!validation.result) {
       this.registerErrorMessage = validation.message;
       return;
@@ -114,6 +85,4 @@ export class NgbdModalUserLoginComponent implements OnInit {
       }
     );
   }
-
 }
-
